@@ -98,10 +98,12 @@ function upsertWorkspace(store: GraphStore, projectId: string, ws: GatewayWorksp
   const title = kind === "worktree" ? (ws.branch ?? ws.name) : ws.name;
 
   if (existing) {
+    // persisted graphs can predate hierarchy fixes — trust the daemon, always
+    const reparented = store.getState().reparent(existing.id, projectId);
     store.getState().setNodeTitle(existing.id, title);
     store.getState().setNodeStatus(existing.id, workspaceStatus(ws));
     store.getState().nodes[existing.id]!.meta = { ...meta, worktree: kind === "worktree" ? ws.name : null };
-    return false;
+    return reparented;
   }
 
   const state = store.getState();
@@ -126,17 +128,19 @@ function upsertWorkspace(store: GraphStore, projectId: string, ws: GatewayWorksp
 }
 
 function upsertAgent(store: GraphStore, agent: GatewayAgent): boolean {
-  const existing = findByExternalId(store, agent.id);
-  if (existing) {
-    store.getState().setNodeStatus(existing.id, agentStatus(agent));
-    store.getState().setNodeTitle(existing.id, agent.title);
-    store.getState().nodes[existing.id]!.meta = agentMeta(agent);
-    return false;
-  }
   const state = store.getState();
+  const existing = findByExternalId(store, agent.id);
   const parent = agent.workspaceId
     ? findByExternalId(store, agent.workspaceId)
     : undefined;
+  if (existing) {
+    // persisted graphs can predate hierarchy fixes — trust the daemon
+    const reparented = store.getState().reparent(existing.id, parent?.id ?? null);
+    store.getState().setNodeStatus(existing.id, agentStatus(agent));
+    store.getState().setNodeTitle(existing.id, agent.title);
+    store.getState().nodes[existing.id]!.meta = agentMeta(agent);
+    return reparented;
+  }
   const parentId = parent?.id ?? null;
   const siblings = parentId
     ? Object.values(state.nodes).filter((n) => n.parentId === parentId && n.kind === "agent")

@@ -34,6 +34,9 @@ export interface GraphState {
   setNodeTitle: (id: string, title: string) => void;
   removeNode: (id: string) => void;
   connect: (from: string, to: string, kind: GraphEdge["kind"]) => GraphEdge | null;
+  /** Move a node to a new parent, replacing its contains edge.
+   * Returns true when the parent actually changed. */
+  reparent: (id: string, parentId: string | null) => boolean;
   toggleCollapsed: (id: string) => void;
   isDescendantOf: (id: string, ancestorId: string) => boolean;
   /** True when the node is inside any collapsed subtree (thus hidden). */
@@ -125,6 +128,29 @@ export function createGraphStore() {
       const edge = createEdge(from, to, kind);
       set((s) => ({ edges: { ...s.edges, [edge.id]: edge } }));
       return edge;
+    },
+
+    reparent: (id, parentId) => {
+      const pre = { ...get() };
+      set((state) => {
+        const node = state.nodes[id];
+        if (!node || node.parentId === parentId) return state;
+        if (parentId !== null && !state.nodes[parentId]) return state;
+        const edges: Record<string, GraphEdge> = {};
+        for (const [edgeId, edge] of Object.entries(state.edges)) {
+          if (edge.kind === "contains" && edge.to === id) continue;
+          edges[edgeId] = edge;
+        }
+        if (parentId !== null) {
+          const edge = createEdge(parentId, id, "contains");
+          edges[edge.id] = edge;
+        }
+        return {
+          nodes: { ...state.nodes, [id]: { ...node, parentId } },
+          edges,
+        };
+      });
+      return get().nodes[id]?.parentId !== pre.nodes[id]?.parentId;
     },
 
     toggleCollapsed: (id) =>

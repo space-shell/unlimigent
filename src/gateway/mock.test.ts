@@ -220,6 +220,24 @@ describe("gateway projection", () => {
     ).toHaveLength(0);
   });
 
+  it("repairs stale parents from persisted graphs on snapshot", () => {
+    // simulate an old persisted node with a wrong parent (workspace under server)
+    const s = store.getState();
+    const server = s.addNode({ kind: "server", title: "test-host" });
+    const stale = s.addNode({ kind: "workspace", title: "workspace a", parentId: server.id, origin: "gateway", externalId: "wks_a" });
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const nodes = Object.values(store.getState().nodes);
+    const project = nodes.find((n) => n.kind === "project")!;
+    const ws = store.getState().nodes[stale.id]!;
+    // wks_a now hangs off its project, not the server
+    expect(ws.parentId).toBe(project.id);
+    expect(
+      Object.values(store.getState().edges).some(
+        (e) => e.kind === "contains" && e.from === project.id && e.to === stale.id,
+      ),
+    ).toBe(true);
+  });
+
   it("is idempotent across repeated snapshots", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });

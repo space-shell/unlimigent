@@ -27,6 +27,15 @@ export function SceneEdges({ runtime }: { runtime: Runtime }) {
     return false;
   };
 
+  // the full ancestor chain of the focused node — every edge along the path
+  // to the root renders green (moss)
+  const activePath = new Set<string>();
+  let cursor = focusedNodeId ? nodes[focusedNodeId] : undefined;
+  while (cursor?.parentId) {
+    activePath.add(`${cursor.parentId}->${cursor.id}`);
+    cursor = nodes[cursor.parentId];
+  }
+
   const lines: Array<{ id: string; points: Array<[number, number, number]>; active: boolean }> = [];
   for (const edge of Object.values(edges)) {
     const from = nodes[edge.from];
@@ -36,7 +45,7 @@ export function SceneEdges({ runtime }: { runtime: Runtime }) {
     const midX = snap((from.position.x + to.position.x) / 2);
     lines.push({
       id: edge.id,
-      active: focusedNodeId !== null && edge.to === focusedNodeId,
+      active: activePath.has(`${edge.from}->${edge.to}`),
       points: [
         [from.position.x, from.position.y, EDGE_Z],
         [midX, from.position.y, EDGE_Z],

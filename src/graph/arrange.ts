@@ -56,7 +56,10 @@ export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
   let moved = 0;
   for (const child of layout.children ?? []) {
     const node = store.getState().nodes[child.id];
-    if (!node || node.pinned) continue;
+    if (!node) continue;
+    // pinning is a user-manual-placement concept: it never applies to
+    // daemon-owned nodes (stale pins from persisted graphs are ignored)
+    if (node.pinned && node.origin !== "gateway") continue;
     const x = snap(child.x ?? 0);
     const y = snap(child.y ?? 0);
     if (node.position.x !== x || node.position.y !== y) {
