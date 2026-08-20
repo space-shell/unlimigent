@@ -76,6 +76,7 @@ const DEFAULT_SCENARIO: MockScenario = {
         attentionReason: null,
         pendingPermissions: 0,
         lastActivityAt: "2026-08-20T19:00:00Z",
+        archived: false,
       },
       {
         id: "agt_codex_voice",
@@ -90,6 +91,7 @@ const DEFAULT_SCENARIO: MockScenario = {
         attentionReason: "permission request",
         pendingPermissions: 1,
         lastActivityAt: "2026-08-20T18:40:00Z",
+        archived: false,
       },
     ],
   },
@@ -168,6 +170,7 @@ export function largeScenario(projectCount = 12): MockScenario {
         attentionReason: p % 6 === 0 ? "permission request" : null,
         pendingPermissions: p % 6 === 0 ? 1 : 0,
         lastActivityAt: "2026-08-20T18:00:00Z",
+        archived: false,
       });
     }
   }

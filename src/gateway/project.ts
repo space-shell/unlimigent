@@ -3,19 +3,22 @@ import { autoArrange } from "../graph/arrange";
 import type { GraphNode, NodeStatus } from "../graph/types";
 import type { GatewayAgent, GatewayEvent, GatewaySnapshot, GatewayWorkspace } from "./types";
 
+/** Projection: daemon truth → graph nodes. Hierarchy mirrors Paseo exactly
+ * (verified 2026-08-20, see INTENT.md "Node ontology"):
+ *   server → project → workspace (local | worktree, siblings) → agent sessions
+ * Archived entities never visualise; nodes are removed when entities archive.
+ * New nodes trigger an auto-arrange re-flow (pinned nodes keep positions). */
+
 function agentStatus(agent: GatewayAgent): NodeStatus {
   if (agent.requiresAttention || agent.pendingPermissions > 0) return "attention";
   return agent.status;
 }
 
 function workspaceStatus(ws: GatewayWorkspace): NodeStatus {
-  if (ws.status === "done" || ws.status === "archived") return "archived";
   if (ws.pullRequest) return "attention";
   return "idle";
 }
 
-/** Presentation meta per node kind — titles/subs live here so cards, info
- * bar, and detail LOD all agree (daemon field mapping, probe 2026-08-20). */
 function workspaceMeta(ws: GatewayWorkspace): GraphNode["meta"] {
   const gitBits: Array<string> = [];
   if (ws.isDirty) gitBits.push("dirty");
@@ -43,133 +46,17 @@ function agentMeta(agent: GatewayAgent): GraphNode["meta"] {
   };
 }
 
-function isWorktreeKind(ws: GatewayWorkspace): boolean {
-  return ws.workspaceKind !== "local_checkout";
-}
-
-function upsertWorkspace(
+function findByExternalId(
   store: GraphStore,
-  serverId: string,
-  ws: GatewayWorkspace,
-): boolean {
-  const state = store.getState();
-  const existing = Object.values(state.nodes).find(
-    (n) => n.origin === "gateway" && n.externalId === ws.id,
+  externalId: string,
+): GraphNode | undefined {
+  return Object.values(store.getState().nodes).find(
+    (n) => n.origin === "gateway" && n.externalId === externalId,
   );
-  const meta = workspaceMeta(ws);
-
-  // worktrees hang off their project's root workspace; roots hang off the server
-  let parentId = serverId;
-  let anchor: { x: number; y: number } | null = null;
-  if (isWorktreeKind(ws)) {
-    const root = Object.values(state.nodes).find(
-      (n) =>
-        n.kind === "workspace" &&
-        n.origin === "gateway" &&
-        n.meta.projectId === ws.projectId,
-    );
-    if (root) {
-      parentId = root.id;
-      anchor = root.position;
-    }
-  }
-
-  if (existing) {
-    store.getState().setNodeTitle(
-      existing.id,
-      isWorktreeKind(ws) ? (ws.branch ?? ws.name) : ws.name,
-    );
-    store.getState().setNodeStatus(existing.id, workspaceStatus(ws));
-    store.getState().nodes[existing.id]!.meta = meta;
-    return false;
-  }
-
-  if (anchor) {
-    const siblings = Object.values(state.nodes).filter(
-      (n) => n.parentId === parentId && n.kind === "worktree",
-    );
-    const i = siblings.length;
-    store.getState().addNode({
-      kind: "worktree",
-      // worktree: branch as title, worktree name as sub
-      title: ws.branch ?? ws.name,
-      parentId,
-      origin: "gateway",
-      externalId: ws.id,
-      status: workspaceStatus(ws),
-      position: {
-        x: anchor.x + 3 + i * 0.5,
-        y: anchor.y - 2.4 - i * 0.35,
-      },
-      meta: { ...meta, projectId: ws.projectId, worktree: ws.name },
-    });
-    return true;
-  }
-
-  const roots = Object.values(state.nodes).filter(
-    (n) => n.parentId === serverId && n.kind === "workspace",
-  );
-  const i = roots.length;
-  const angle = (i * Math.PI) / 4 - Math.PI / 2;
-  store.getState().addNode({
-    kind: "workspace",
-    // workspace: name as title, folder path as sub
-    title: ws.name,
-    parentId,
-    origin: "gateway",
-    externalId: ws.id,
-    status: workspaceStatus(ws),
-    position: {
-      x: 5.5 + Math.cos(angle) * 3.5,
-      y: Math.sin(angle) * 3,
-    },
-    meta: { ...meta, projectId: ws.projectId },
-  });
-  return true;
-}
-
-function upsertAgent(store: GraphStore, agent: GatewayAgent): boolean {
-  const state = store.getState();
-  const existing = Object.values(state.nodes).find(
-    (n) => n.origin === "gateway" && n.externalId === agent.id,
-  );
-  const parent = agent.workspaceId
-    ? Object.values(state.nodes).find(
-        (n) => n.origin === "gateway" && n.externalId === agent.workspaceId,
-      )
-    : undefined;
-  if (existing) {
-    store.getState().setNodeStatus(existing.id, agentStatus(agent));
-    store.getState().setNodeTitle(existing.id, agent.title);
-    store.getState().nodes[existing.id]!.meta = agentMeta(agent);
-    return false;
-  }
-  const parentId = parent?.id ?? null;
-  const siblings = parentId
-    ? Object.values(state.nodes).filter((n) => n.parentId === parentId && n.kind === "agent")
-    : [];
-  const angle = (siblings.length * Math.PI) / 5;
-  store.getState().addNode({
-    kind: "agent",
-    title: agent.title,
-    parentId,
-    origin: "gateway",
-    externalId: agent.id,
-    status: agentStatus(agent),
-    position: parent
-      ? {
-          x: parent.position.x + Math.cos(angle) * (2.5 + siblings.length * 0.4),
-          y: parent.position.y - 2.2 + Math.sin(angle) * 1.4,
-        }
-      : { x: 0, y: -4 },
-    meta: agentMeta(agent),
-  });
-  return true;
 }
 
 function ensureServer(store: GraphStore, host: string): string {
-  const state = store.getState();
-  const server = Object.values(state.nodes).find(
+  const server = Object.values(store.getState().nodes).find(
     (n) => n.kind === "server" && n.origin === "gateway",
   );
   if (server) return server.id;
@@ -181,36 +68,131 @@ function ensureServer(store: GraphStore, host: string): string {
   }).id;
 }
 
-function applySnapshot(store: GraphStore, snapshot: GatewaySnapshot): void {
-  const serverId = ensureServer(store, snapshot.daemonHost);
-  // roots first so worktrees can find their project's workspace node
-  const ordered = [
-    ...snapshot.workspaces.filter((w) => !isWorktreeKind(w)),
-    ...snapshot.workspaces.filter(isWorktreeKind),
-  ];
-  let added = 0;
-  for (const ws of ordered) added += upsertWorkspace(store, serverId, ws) ? 1 : 0;
-  for (const agent of snapshot.agents) added += upsertAgent(store, agent) ? 1 : 0;
+function ensureProject(store: GraphStore, serverId: string, projectId: string, name: string): string {
+  const existing = findByExternalId(store, projectId);
+  if (existing) return existing.id;
+  const siblings = Object.values(store.getState().nodes).filter(
+    (n) => n.parentId === serverId && n.kind === "project",
+  );
+  const i = siblings.length;
+  const angle = (i * Math.PI) / 4 - Math.PI / 2;
+  return store.getState().addNode({
+    kind: "project",
+    title: name,
+    parentId: serverId,
+    origin: "gateway",
+    externalId: projectId,
+    position: {
+      x: 4 + Math.cos(angle) * 3,
+      y: Math.sin(angle) * 3,
+    },
+  }).id;
+}
 
-  // a snapshot is authoritative for gateway-origin nodes: prune anything the
-  // daemon no longer reports (also clears a previous gateway's leftovers,
-  // e.g. mock nodes persisted before switching to the live daemon)
+function upsertWorkspace(store: GraphStore, projectId: string, ws: GatewayWorkspace): boolean {
+  const existing = findByExternalId(store, ws.id);
+  const kind = ws.workspaceKind === "worktree" ? "worktree" : "workspace";
+  const meta = workspaceMeta(ws);
+  const title = kind === "worktree" ? (ws.branch ?? ws.name) : ws.name;
+
+  if (existing) {
+    store.getState().setNodeTitle(existing.id, title);
+    store.getState().setNodeStatus(existing.id, workspaceStatus(ws));
+    store.getState().nodes[existing.id]!.meta = { ...meta, worktree: kind === "worktree" ? ws.name : null };
+    return false;
+  }
+
+  const state = store.getState();
+  const siblings = Object.values(state.nodes).filter(
+    (n) => n.parentId === projectId && (n.kind === "workspace" || n.kind === "worktree"),
+  );
+  const i = siblings.length;
+  store.getState().addNode({
+    kind,
+    title,
+    parentId: projectId,
+    origin: "gateway",
+    externalId: ws.id,
+    status: workspaceStatus(ws),
+    position: {
+      x: 3 + i * 0.4,
+      y: -2.2 - i * 1.8,
+    },
+    meta: { ...meta, worktree: kind === "worktree" ? ws.name : null },
+  });
+  return true;
+}
+
+function upsertAgent(store: GraphStore, agent: GatewayAgent): boolean {
+  const existing = findByExternalId(store, agent.id);
+  if (existing) {
+    store.getState().setNodeStatus(existing.id, agentStatus(agent));
+    store.getState().setNodeTitle(existing.id, agent.title);
+    store.getState().nodes[existing.id]!.meta = agentMeta(agent);
+    return false;
+  }
+  const state = store.getState();
+  const parent = agent.workspaceId
+    ? findByExternalId(store, agent.workspaceId)
+    : undefined;
+  const parentId = parent?.id ?? null;
+  const siblings = parentId
+    ? Object.values(state.nodes).filter((n) => n.parentId === parentId && n.kind === "agent")
+    : [];
+  const i = siblings.length;
+  store.getState().addNode({
+    kind: "agent",
+    title: agent.title,
+    parentId,
+    origin: "gateway",
+    externalId: agent.id,
+    status: agentStatus(agent),
+    position: parent
+      ? { x: 2 + i * 0.3, y: parent.position.y - 2 - i * 1.6 }
+      : { x: 0, y: -4 },
+    meta: agentMeta(agent),
+  });
+  return true;
+}
+
+/** Remove workspace/agent nodes whose entity disappeared or archived, and
+ * project nodes with no live workspaces left. Returns removal count. */
+function pruneOrphans(store: GraphStore, snapshot: GatewaySnapshot): number {
   const liveIds = new Set<string>([
     ...snapshot.workspaces.map((w) => w.id),
     ...snapshot.agents.map((a) => a.id),
   ]);
   const state = store.getState();
-  const stale = Object.values(state.nodes).filter(
-    (n) =>
-      n.origin === "gateway" &&
-      n.kind !== "server" &&
-      n.externalId !== null &&
-      !liveIds.has(n.externalId),
-  );
-  for (const node of stale) store.getState().removeNode(node.id);
+  let removed = 0;
+  for (const node of Object.values(state.nodes)) {
+    if (node.origin !== "gateway" || node.kind === "server" || node.kind === "project") continue;
+    if (node.externalId !== null && !liveIds.has(node.externalId)) {
+      store.getState().removeNode(node.id);
+      removed += 1;
+    }
+  }
+  // projects with no remaining workspaces are removed too
+  const after = store.getState();
+  const projectIds = new Set(snapshot.workspaces.map((w) => w.projectId));
+  for (const node of Object.values(after.nodes)) {
+    if (node.origin === "gateway" && node.kind === "project" && !projectIds.has(node.externalId ?? "")) {
+      store.getState().removeNode(node.id);
+      removed += 1;
+    }
+  }
+  return removed;
+}
 
-  // new nodes → re-flow the graph (pinned nodes keep their positions)
-  if (added > 0) void autoArrange(store);
+function applySnapshot(store: GraphStore, snapshot: GatewaySnapshot): void {
+  const serverId = ensureServer(store, snapshot.daemonHost);
+  let changed = false;
+  for (const ws of snapshot.workspaces) {
+    const projectId = ensureProject(store, serverId, ws.projectId, ws.projectDisplayName);
+    changed = upsertWorkspace(store, projectId, ws) || changed;
+  }
+  for (const agent of snapshot.agents) changed = upsertAgent(store, agent) || changed;
+  const removed = pruneOrphans(store, snapshot);
+  if (changed || removed > 0) void autoArrange(store);
 }
 
 export function projectGatewayEvent(store: GraphStore, event: GatewayEvent): void {
@@ -219,34 +201,53 @@ export function projectGatewayEvent(store: GraphStore, event: GatewayEvent): voi
       applySnapshot(store, event.snapshot);
       break;
     case "workspace-updated": {
+      // a workspace that archived between polls arrives as done/archived → remove
+      if (event.workspace.status === "done" || event.workspace.status === "archived") {
+        const existing = findByExternalId(store, event.workspace.id);
+        if (existing) {
+          store.getState().removeNode(existing.id);
+          void autoArrange(store);
+        }
+        break;
+      }
       const state = store.getState();
       const server = Object.values(state.nodes).find(
         (n) => n.kind === "server" && n.origin === "gateway",
       );
-      if (server) upsertWorkspace(store, server.id, event.workspace);
+      if (server) {
+        const projectId = ensureProject(store, server.id, event.workspace.projectId, event.workspace.projectDisplayName);
+        upsertWorkspace(store, projectId, event.workspace);
+      }
       break;
     }
     case "workspace-archived": {
-      const state = store.getState();
-      const ws = Object.values(state.nodes).find(
-        (n) => n.origin === "gateway" && n.externalId === event.id,
-      );
-      if (ws) store.getState().setNodeStatus(ws.id, "archived");
+      const existing = findByExternalId(store, event.id);
+      if (existing) {
+        store.getState().removeNode(existing.id);
+        void autoArrange(store);
+      }
       break;
     }
     case "agent-updated":
+      if (event.agent.archived) {
+        const existing = findByExternalId(store, event.agent.id);
+        if (existing) {
+          store.getState().removeNode(existing.id);
+          void autoArrange(store);
+        }
+        break;
+      }
       upsertAgent(store, event.agent);
       break;
     case "agent-removed": {
-      const state = store.getState();
-      const agent = Object.values(state.nodes).find(
-        (n) => n.origin === "gateway" && n.externalId === event.id,
-      );
-      if (agent) store.getState().removeNode(agent.id);
+      const existing = findByExternalId(store, event.id);
+      if (existing) {
+        store.getState().removeNode(existing.id);
+        void autoArrange(store);
+      }
       break;
     }
     case "connection":
-      // connection state surfaces in the UI layer, not the graph
       break;
   }
 }

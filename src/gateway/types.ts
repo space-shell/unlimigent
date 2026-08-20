@@ -37,6 +37,7 @@ export interface GatewayAgent {
   attentionReason: string | null;
   pendingPermissions: number;
   lastActivityAt: string | null;
+  archived: boolean;
 }
 
 export interface GatewaySnapshot {

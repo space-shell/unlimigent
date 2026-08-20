@@ -28,6 +28,7 @@ interface DaemonAgent {
   pendingPermissions?: Array<unknown> | null;
   lastUserMessageAt?: string | null;
   updatedAt?: string | null;
+  archivedAt?: string | null;
 }
 
 interface DaemonWorkspace {
@@ -39,6 +40,7 @@ interface DaemonWorkspace {
   workspaceKind?: string;
   workspaceDirectory?: string | null;
   status?: string;
+  archivingAt?: string | null;
   diffStat?: string | null;
   gitRuntime?: {
     currentBranch?: string | null;
@@ -57,7 +59,9 @@ function mapStatus(a: DaemonAgent): GatewayAgent["status"] {
   return "idle";
 }
 
-function mapAgent(a: DaemonAgent): GatewayAgent {
+function mapAgent(a: DaemonAgent): GatewayAgent | null {
+  // archived agents are never visualised
+  if (a.archivedAt) return null;
   const cwd = a.cwd ?? "";
   return {
     id: a.id,
@@ -72,10 +76,17 @@ function mapAgent(a: DaemonAgent): GatewayAgent {
     attentionReason: a.attentionReason ?? null,
     pendingPermissions: a.pendingPermissions?.length ?? 0,
     lastActivityAt: a.lastUserMessageAt ?? a.updatedAt ?? null,
+    archived: false,
   };
 }
 
-function mapWorkspace(w: DaemonWorkspace): GatewayWorkspace {
+function isWorkspaceArchived(w: DaemonWorkspace): boolean {
+  return w.status === "done" || w.status === "archived" || w.archivingAt !== null;
+}
+
+function mapWorkspace(w: DaemonWorkspace): GatewayWorkspace | null {
+  // archived workspaces are never visualised
+  if (isWorkspaceArchived(w)) return null;
   const pr = w.githubRuntime?.pullRequest ?? null;
   const git = w.gitRuntime ?? null;
   return {
@@ -168,11 +179,13 @@ export class RealPaseoGateway implements PaseoGateway {
       const agents = entriesOf(agentsRes)
         .map((e) => (e.agent as DaemonAgent | undefined) ?? (e as unknown as DaemonAgent))
         .filter((a) => a && typeof a.id === "string")
-        .map(mapAgent);
+        .map(mapAgent)
+        .filter((a): a is GatewayAgent => a !== null);
       const workspaces = entriesOf(workspacesRes)
         .map((e) => e as unknown as DaemonWorkspace)
         .filter((w) => typeof w.id === "string")
-        .map(mapWorkspace);
+        .map(mapWorkspace)
+        .filter((w): w is GatewayWorkspace => w !== null);
 
       if (!this.snapshotSent) {
         this.snapshotSent = true;

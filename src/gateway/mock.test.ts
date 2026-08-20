@@ -70,6 +70,7 @@ const snapshot = (): GatewaySnapshot => ({
       attentionReason: null,
       pendingPermissions: 0,
       lastActivityAt: null,
+      archived: false,
     },
   ],
 });
@@ -81,35 +82,37 @@ describe("gateway projection", () => {
     store = createGraphStore();
   });
 
-  it("builds server/workspace/agent nodes from a snapshot", () => {
+  it("builds server → project → workspace/worktree (siblings) → agent", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     const nodes = Object.values(store.getState().nodes);
-    expect(nodes.filter((n) => n.kind === "server")).toHaveLength(1);
-    expect(nodes.filter((n) => n.kind === "workspace")).toHaveLength(1);
-    expect(nodes.filter((n) => n.kind === "worktree")).toHaveLength(1);
-    expect(nodes.filter((n) => n.kind === "agent")).toHaveLength(1);
-  });
-
-  it("nests worktrees under their project workspace", () => {
-    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
-    const nodes = store.getState().nodes;
-    const root = Object.values(nodes).find((n) => n.externalId === "wks_a");
-    const worktree = Object.values(nodes).find((n) => n.externalId === "wks_b");
-    expect(root?.kind).toBe("workspace");
-    expect(worktree?.kind).toBe("worktree");
-    expect(worktree?.parentId).toBe(root?.id);
+    const server = nodes.find((n) => n.kind === "server")!;
+    const project = nodes.find((n) => n.kind === "project")!;
+    const ws = nodes.find((n) => n.externalId === "wks_a")!;
+    const wt = nodes.find((n) => n.externalId === "wks_b")!;
+    const agent = nodes.find((n) => n.kind === "agent")!;
+    expect(project.parentId).toBe(server.id);
+    // local and worktree are SIBLINGS under the project
+    expect(ws.parentId).toBe(project.id);
+    expect(wt.parentId).toBe(project.id);
+    expect(agent.parentId).toBe(ws.id);
   });
 
   it("titles workspaces by name with path sub, worktrees by branch with worktree sub", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     const nodes = store.getState().nodes;
-    const root = Object.values(nodes).find((n) => n.externalId === "wks_a");
-    const worktree = Object.values(nodes).find((n) => n.externalId === "wks_b");
-    expect(root?.title).toBe("workspace a");
-    expect(root?.meta.path).toBe("/p/a");
-    expect(worktree?.title).toBe("feat");
-    expect(worktree?.meta.worktree).toBe("worktree b");
-    expect(worktree?.meta.pr).toBe("open: pr 1");
+    const ws = Object.values(nodes).find((n) => n.externalId === "wks_a");
+    const wt = Object.values(nodes).find((n) => n.externalId === "wks_b");
+    expect(ws?.title).toBe("workspace a");
+    expect(ws?.meta.path).toBe("/p/a");
+    expect(wt?.title).toBe("feat");
+    expect(wt?.meta.worktree).toBe("worktree b");
+    expect(wt?.meta.pr).toBe("open: pr 1");
+  });
+
+  it("marks workspaces with open PRs as attention", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const b = Object.values(store.getState().nodes).find((n) => n.externalId === "wks_b");
+    expect(b?.status).toBe("attention");
   });
 
   it("marks agents attention when permissions are pending", () => {
@@ -128,10 +131,58 @@ describe("gateway projection", () => {
     expect(agent?.meta.permissions).toBe("2");
   });
 
-  it("marks workspaces with open PRs as attention", () => {
+  it("removes nodes for entities that archived between polls", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
-    const b = Object.values(store.getState().nodes).find((n) => n.externalId === "wks_b");
-    expect(b?.status).toBe("attention");
+    expect(Object.values(store.getState().nodes).some((n) => n.externalId === "wks_b")).toBe(true);
+    projectGatewayEvent(store, {
+      kind: "workspace-updated",
+      workspace: { ...snapshot().workspaces[1]!, status: "done" },
+    });
+    expect(Object.values(store.getState().nodes).some((n) => n.externalId === "wks_b")).toBe(false);
+  });
+
+  it("removes agent nodes when an archived agent arrives", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    projectGatewayEvent(store, {
+      kind: "agent-updated",
+      agent: { ...snapshot().agents[0]!, archived: true },
+    });
+    expect(Object.values(store.getState().nodes).some((n) => n.kind === "agent")).toBe(false);
+  });
+
+  it("removes a project when its last workspace disappears", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const shrunk: GatewaySnapshot = {
+      daemonHost: "test-host",
+      workspaces: [],
+      agents: [],
+    };
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: shrunk });
+    const kinds = Object.values(store.getState().nodes).map((n) => n.kind);
+    expect(kinds).toEqual(["server"]);
+  });
+
+  it("prunes gateway nodes absent from a later snapshot", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const shrunk: GatewaySnapshot = {
+      ...snapshot(),
+      workspaces: snapshot().workspaces.filter((w) => w.id === "wks_a"),
+      agents: [],
+    };
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: shrunk });
+    const state = store.getState();
+    const remaining = Object.values(state.nodes);
+    expect(remaining.some((n) => n.externalId === "wks_b")).toBe(false);
+    expect(remaining.some((n) => n.kind === "agent")).toBe(false);
+    expect(remaining.some((n) => n.externalId === "wks_a")).toBe(true);
+    // project survives: prj_1 still has wks_a
+    expect(remaining.some((n) => n.kind === "project")).toBe(true);
+    // edges to removed nodes are gone
+    expect(
+      Object.values(state.edges).every(
+        (e) => state.nodes[e.from] && state.nodes[e.to],
+      ),
+    ).toBe(true);
   });
 
   it("updates an existing agent instead of duplicating", () => {
@@ -158,34 +209,10 @@ describe("gateway projection", () => {
     ).toHaveLength(0);
   });
 
-  it("archives a workspace on workspace-archived", () => {
-    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
-    projectGatewayEvent(store, { kind: "workspace-archived", id: "wks_a" });
-    const a = Object.values(store.getState().nodes).find((n) => n.externalId === "wks_a");
-    expect(a?.status).toBe("archived");
-  });
-
   it("is idempotent across repeated snapshots", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
-    expect(Object.keys(store.getState().nodes)).toHaveLength(4);
-  });
-
-  it("prunes gateway nodes absent from a later snapshot", () => {
-    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
-    const shrunk: GatewaySnapshot = {
-      ...snapshot(),
-      workspaces: snapshot().workspaces.filter((w) => w.id === "wks_a"),
-      agents: [],
-    };
-    projectGatewayEvent(store, { kind: "snapshot", snapshot: shrunk });
-    const state = store.getState();
-    expect(state.nodes).toBeDefined();
-    expect(Object.values(state.nodes).map((n) => n.externalId).sort()).toEqual([
-      null,
-      "wks_a",
-    ]);
-    expect(Object.keys(state.edges)).toHaveLength(1);
+    expect(Object.keys(store.getState().nodes)).toHaveLength(5);
   });
 });
 
