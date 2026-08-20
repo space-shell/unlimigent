@@ -17,9 +17,13 @@ function memoryStorage(): Storage & { data: Map<string, string> } {
 }
 
 describe("flags", () => {
-  it("defaults every flag to off", () => {
+  it("defaults shipped stages on, future stages off", () => {
     const defaults = flagDefaults();
-    expect(Object.values(defaults).every((v) => v === false)).toBe(true);
+    expect(defaults.stage1).toBe(true);
+    expect(defaults.stage2).toBe(true);
+    for (const [name, on] of Object.entries(defaults)) {
+      if (name !== "stage1" && name !== "stage2") expect(on).toBe(false);
+    }
   });
 
   it("returns defaults when storage is empty", () => {
@@ -28,21 +32,21 @@ describe("flags", () => {
 
   it("persists an override and merges it over defaults", () => {
     const storage = memoryStorage();
-    setFlag("stage1", true, storage);
+    setFlag("stage3", true, storage);
     const flags = readFlags(storage);
-    expect(flags.stage1).toBe(true);
-    expect(flags.stage2).toBe(false);
+    expect(flags.stage3).toBe(true);
+    expect(flags.stage4).toBe(false);
   });
 
   it("ignores unknown or malformed persisted keys", () => {
     const storage = memoryStorage();
     storage.setItem(
       "unlimigent.flags",
-      JSON.stringify({ stage1: true, bogus: true, stage2: "not-a-bool" }),
+      JSON.stringify({ stage3: true, bogus: true, stage4: "not-a-bool" }),
     );
     const flags = readFlags(storage);
-    expect(flags.stage1).toBe(true);
-    expect(flags.stage2).toBe(false);
+    expect(flags.stage3).toBe(true);
+    expect(flags.stage4).toBe(false);
     expect("bogus" in flags).toBe(false);
   });
 

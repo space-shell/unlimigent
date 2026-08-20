@@ -12,6 +12,7 @@ body {
     ui-monospace, "JetBrains Mono", "IBM Plex Mono", "Cascadia Mono", Menlo,
     monospace;
   -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
 }
 
 .boot {
@@ -46,5 +47,154 @@ body {
   font-size: 0.6rem;
   color: var(--ink-faint);
   pointer-events: none;
+  z-index: 2000;
+}
+
+/* ---- canvas layout ---- */
+
+.graph-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.gesture-layer {
+  position: absolute;
+  inset: 0;
   z-index: 10;
+  touch-action: none;
+}
+
+.edge-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.edge-overlay line {
+  stroke: var(--ink-faint);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+/* ---- node cards (drei Html) ---- */
+
+.node-card {
+  --node-accent: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  background: var(--paper);
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  white-space: nowrap;
+}
+
+.node-card[data-status="running"] { --node-accent: var(--indigo); }
+.node-card[data-status="attention"] { --node-accent: var(--ochre); }
+.node-card[data-status="error"] { --node-accent: var(--terracotta); }
+.node-card[data-status="done"] { --node-accent: var(--moss); }
+.node-card[data-status="archived"] { --node-accent: var(--plum); opacity: 0.65; }
+
+.node-card.focused {
+  outline: 2px solid var(--node-accent);
+  outline-offset: 2px;
+}
+
+.node-glyph {
+  color: var(--node-accent);
+  font-size: 0.8rem;
+}
+
+.node-text {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.node-title {
+  font-size: 0.72rem;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-sub {
+  font-size: 0.6rem;
+  color: var(--ink-faint);
+}
+
+.node-card[data-lod="compact"] {
+  padding: 0.3rem 0.5rem;
+}
+.node-card[data-lod="compact"] .node-title {
+  font-size: 0.6rem;
+}
+
+.node-card[data-lod="dot"] {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--node-accent);
+  border-color: var(--node-accent);
+}
+
+/* ---- info bar ---- */
+
+.info-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  max-width: min(92vw, 40rem);
+  padding: 0.55rem 0.95rem;
+  background: var(--paper);
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  font-size: 0.68rem;
+  pointer-events: none;
+}
+
+.info-kind {
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+}
+
+.info-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info-status {
+  --node-accent: var(--ink-faint);
+  color: var(--node-accent);
+}
+.info-status[data-status="running"] { --node-accent: var(--indigo); }
+.info-status[data-status="attention"] { --node-accent: var(--ochre); }
+.info-status[data-status="error"] { --node-accent: var(--terracotta); }
+.info-status[data-status="done"] { --node-accent: var(--moss); }
+.info-status[data-status="archived"] { --node-accent: var(--plum); }
+
+.info-meta {
+  color: var(--ink-faint);
+  font-size: 0.6rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.info-hint {
+  color: var(--ink-faint);
 }
