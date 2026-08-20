@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F6F3EE">
+  <title>unlimigent</title>
+  <style>
+    :root {
+      --paper: #F6F3EE;
+      --ink: #2B2A27;
+      --ink-faint: #8A867E;
+      --terracotta: #C26B4D;
+      --moss: #7D8F70;
+      --indigo: #5D6FA3;
+      --ochre: #C6A233;
+      --plum: #8E6E7E;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-monospace, "JetBrains Mono", "IBM Plex Mono", "Cascadia Mono", Menlo, monospace;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      line-height: 1.7;
+      -webkit-text-size-adjust: 100%;
+    }
+    main { width: 100%; max-width: 36rem; }
+    pre.banner {
+      font-size: clamp(0.5rem, 2.4vw, 0.85rem);
+      line-height: 1.35;
+      overflow-x: auto;
+      color: var(--ink);
+      margin-bottom: 1.75rem;
+    }
+    h1 { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+    p { font-size: 0.85rem; }
+    .faint { color: var(--ink-faint); }
+    .status {
+      margin-top: 1.75rem;
+      border-top: 1px solid var(--ink-faint);
+      padding-top: 1.25rem;
+    }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1.5rem; font-size: 0.8rem; }
+    dt { color: var(--ink-faint); }
+    dd::before { content: "◇ "; color: var(--ink-faint); }
+    .token-strip {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+      font-size: 0.7rem;
+      color: var(--ink-faint);
+    }
+    .swatch { width: 1.5rem; height: 1.5rem; border-radius: 50%; }
+    .tok { display: grid; justify-items: center; gap: 0.35rem; }
+    footer { margin-top: 2.5rem; font-size: 0.7rem; color: var(--ink-faint); }
+  </style>
+</head>
+<body>
+  <main>
+    <pre class="banner" aria-hidden="true">
+  ┌───────────────────────────────────────────┐
+  │                                           │
+  │   unlimigent                              │
+  │   spatial agent orchestration             │
+  │                                           │
+  │   [server]──[worktree]──[agent ◉]         │
+  │       │            │                      │
+  │       │            ├──[github ◇]          │
+  │       │            └──[slack  ◇]          │
+  │       └──[worktree]──[agent ◉]            │
+  │                                           │
+  └───────────────────────────────────────────┘</pre>
+
+    <h1>unlimigent</h1>
+    <p>A spatial user experience for the management and orchestration of AI agents.
+    An infinite-canvas, tablet-first, keyboard-less interface onto the
+    <a href="https://github.com/getpaseo/paseo">paseo</a> daemon.</p>
+
+    <section class="status">
+      <dl>
+        <dt>status</dt><dd>planning phase — pre-stage 0</dd>
+        <dt>input</dt><dd>touch · gamepad · gaze · voice</dd>
+        <dt>ethos</dt><dd>the map is the product</dd>
+      </dl>
+    </section>
+
+    <div class="token-strip" aria-hidden="true">
+      <div class="tok"><div class="swatch" style="background:#C26B4D"></div>terracotta</div>
+      <div class="tok"><div class="swatch" style="background:#7D8F70"></div>moss</div>
+      <div class="tok"><div class="swatch" style="background:#5D6FA3"></div>indigo</div>
+      <div class="tok"><div class="swatch" style="background:#C6A233"></div>ochre</div>
+      <div class="tok"><div class="swatch" style="background:#8E6E7E"></div>plum</div>
+    </div>
+
+    <footer class="faint">
+      this page is a design-language probe — tokens, monospace, and
+      box-drawing glyphs verified on device. the app arrives with stage 0.
+    </footer>
+  </main>
+</body>
+</html>
