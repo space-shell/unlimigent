@@ -176,16 +176,19 @@ export class RealPaseoGateway implements PaseoGateway {
         client.agents.list(),
         client.workspaces.list(),
       ]);
-      const agents = entriesOf(agentsRes)
-        .map((e) => (e.agent as DaemonAgent | undefined) ?? (e as unknown as DaemonAgent))
-        .filter((a) => a && typeof a.id === "string")
-        .map(mapAgent)
-        .filter((a): a is GatewayAgent => a !== null);
       const workspaces = entriesOf(workspacesRes)
         .map((e) => e as unknown as DaemonWorkspace)
         .filter((w) => typeof w.id === "string")
         .map(mapWorkspace)
         .filter((w): w is GatewayWorkspace => w !== null);
+      // agents of filtered (archived) workspaces have no container — drop them
+      const liveWorkspaceIds = new Set(workspaces.map((w) => w.id));
+      const agents = entriesOf(agentsRes)
+        .map((e) => (e.agent as DaemonAgent | undefined) ?? (e as unknown as DaemonAgent))
+        .filter((a) => a && typeof a.id === "string")
+        .map(mapAgent)
+        .filter((a): a is GatewayAgent => a !== null)
+        .filter((a) => a.workspaceId === null || liveWorkspaceIds.has(a.workspaceId));
 
       if (!this.snapshotSent) {
         this.snapshotSent = true;
