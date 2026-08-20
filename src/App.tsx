@@ -1,6 +1,5 @@
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
-import { tokens } from "./tokens";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { webglSupport } from "./diagnostics";
 import { readFlags } from "./flags";
@@ -56,9 +55,8 @@ function GraphApp() {
             orthographic
             camera={{ position: [0, 0, 10], zoom: 48 }}
             dpr={[1, 2]}
-            gl={{ antialias: true }}
+            gl={{ antialias: true, alpha: true }}
           >
-            <color attach="background" args={[tokens.paper]} />
             <CameraRig />
             <GroundCatcher runtime={runtime} />
             <GroundNodes runtime={runtime} viewport={viewport} />

@@ -215,12 +215,12 @@ function GroundPlate({
       }}
     >
       {/* hairline border plate */}
-      <mesh position={[0, 0, -0.01]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0, -0.01]}>
         <planeGeometry args={[borderW, borderH]} />
         <meshBasicMaterial color={focused ? accent : tokens.inkFaint} />
       </mesh>
       {/* paper fill */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh>
         <planeGeometry args={[PLATE_W, PLATE_H]} />
         <meshBasicMaterial
           color={tokens.paper}
@@ -229,13 +229,13 @@ function GroundPlate({
         />
       </mesh>
       {/* status dot */}
-      <mesh position={[PLATE_W / 2 - textPad, lod === "dot" ? 0 : PLATE_H / 2 - 0.32, 0.002]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[PLATE_W / 2 - textPad, lod === "dot" ? 0 : PLATE_H / 2 - 0.32, 0.002]}>
         <circleGeometry args={[0.12, 16]} />
         <meshBasicMaterial color={accent} />
       </mesh>
       {/* hold-to-collapse ring: fills clockwise around the plate border */}
       {fill > 0 && fill < 1 && (
-        <mesh position={[0, 0, 0.004]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0, 0.004]}>
           <ringGeometry args={[PLATE_H / 2 + 0.02, PLATE_H / 2 + 0.22, 48, 1, Math.PI / 2, fill * Math.PI * 2]} />
           <meshBasicMaterial color={accent} />
         </mesh>
@@ -248,7 +248,7 @@ function GroundPlate({
           anchorX="left"
           anchorY="top"
           position={[-PLATE_W / 2 + textPad, PLATE_H / 2 - 0.18, 0.002]}
-          rotation={[-Math.PI / 2, 0, 0]}
+         
           maxWidth={PLATE_W - textPad * 2 - 0.4}
         >
           {node.title}
@@ -262,7 +262,7 @@ function GroundPlate({
           anchorX="left"
           anchorY="top"
           position={[-PLATE_W / 2 + textPad, PLATE_H / 2 - 0.68, 0.002]}
-          rotation={[-Math.PI / 2, 0, 0]}
+         
           maxWidth={PLATE_W - textPad * 2}
         >
           {subLine(node)}
@@ -276,7 +276,7 @@ function GroundPlate({
           anchorX="left"
           anchorY="top"
           position={[-PLATE_W / 2 + textPad, -PLATE_H / 2 + detailRows.length * 0.3 + 0.1, 0.002]}
-          rotation={[-Math.PI / 2, 0, 0]}
+         
           maxWidth={PLATE_W - textPad * 2}
         >
           {detailRows.map(([k, v]) => `${k} ${v}`).join("\n")}
@@ -291,7 +291,7 @@ function GroundPlate({
           anchorX="center"
           anchorY="middle"
           position={[0, 0, 0.002]}
-          rotation={[-Math.PI / 2, 0, 0]}
+         
         >
           {`+${hiddenCount}`}
         </Text>

@@ -9,7 +9,7 @@ export function GroundCatcher({ runtime }: { runtime: Runtime }) {
   return (
     <mesh
       position={[0, 0, -0.05]}
-      rotation={[-Math.PI / 2, 0, 0]}
+     
       onPointerDown={(e) => {
         e.stopPropagation();
         (e.target as Element).setPointerCapture?.(e.pointerId);
