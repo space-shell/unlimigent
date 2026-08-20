@@ -12,7 +12,7 @@ that journey on the physical device. Everything else is post-MVP.
 
 | Stage | Flag | Focus | Status |
 |---|---|---|---|
-| 0 | `stage0` | Foundations & spikes | ☐ not started |
+| 0 | — | Foundations & spikes | ◐ in progress |
 | 1 | `stage1` | Graph core & input model | ☐ not started |
 | 2 | `stage2` | Canvas & touch navigation | ☐ not started |
 | 3 | `stage3` | Gamepad & game UX | ☐ not started |
@@ -24,25 +24,23 @@ that journey on the physical device. Everything else is post-MVP.
 
 De-risk assumptions before they are load-bearing.
 
-- Scaffold: flake.nix devshell (nodejs 22+), Vite + React + TS + `vite-plugin-pwa`,
-  R3F/drei, lint/format config.
-- Feature-flag module: typed flags object, persisted in settings, gating UI entry
-  points.
+- [x] Scaffold: flake.nix devshell (nodejs 22), Vite + React + TS + `vite-plugin-pwa`,
+  R3F/drei, lint/format config. (lint/typecheck/test/build all green; PWA SW
+  generated)
+- [x] Feature-flag module: typed flags object, persisted in settings, gating UI entry
+  points. (`src/flags.ts`)
 - Spikes (findings logged below):
-  - **0a** Paseo event surface: connect `@getpaseo/client` to the live daemon;
-    enumerate event granularity (agents, workspaces/worktrees, schedules,
-    permissions, MCP tool-call visibility). Output: verified `PaseoGateway`
-    interface.
-  - **0b** HTML-in-canvas on device: WICG demos on the pad (Cromite) + desktop;
+  - [x] **0a** Paseo event surface — findings below.
+  - [ ] **0b** HTML-in-canvas on device: WICG demos on the pad (Cromite) + desktop;
     record flag/trial availability. Determines the `HTMLTexture` slot.
-  - **0c** STT engine: Web Speech API availability on Cromite (likely absent —
+  - [ ] **0c** STT engine: Web Speech API availability on Cromite (likely absent —
     Google services stripped); whisper.cpp WASM model size/latency on the pad; cloud
     fallback. Determines the speech stack for Stage 5.
-  - **0d** Pages-origin → local daemon: HTTPS origin connecting to `ws://localhost`
+  - [ ] **0d** Pages-origin → local daemon: HTTPS origin connecting to `ws://localhost`
     (mixed content + Private Network Access behavior on Cromite). Fallback remains
     adb reverse against a local dev server.
 - Exit criteria: spike findings recorded; `nix develop` → `npm run dev` serves an
-  empty R3F canvas on the pad.
+  empty R3F canvas on the pad. (devshell + build green; on-pad check pending)
 
 ## Stage 1 — Graph core & input model (renderer-agnostic)
 
@@ -110,7 +108,7 @@ yaw) · collaboration/CRDT sync.
 
 | Spike | Question | Finding | Date |
 |---|---|---|---|
-| 0a | Paseo event granularity? | — | — |
+| 0a | Paseo event granularity? | **Answered — richer than assumed.** Daemon reachable at `ws://100.127.193.39:6767/ws` (no password on tailnet). SDK namespaces: `workspaces` (list/ref/open/create/archive/subscribe), `agents` (list/ref/create/subscribe), `providers` (listModels/listModes/listFeatures/listAvailable/snapshot/waitForReady/refresh/diagnostic/subscribe), `config` (get/patch). No global `client.on` — per-namespace `subscribe(handler)` returning an unsubscribe fn; no events observed on an idle daemon (payload shapes confirmed in Stage 4). `workspaces.list` payloads include `gitRuntime` (branch, remote, dirty, ahead/behind), `githubRuntime.pullRequest`, `forge`, `workspaceKind` (`local_checkout`), project grouping — **GitHub PR state arrives via daemon metadata; integration nodes need no separate GitHub API for MVP**. `agents.list` includes provider/model/status/activeTurn/capabilities (`supportsMcpServers`, `supportsToolInvocations`). No first-class permissions namespace in client 0.4.0 — permissions expected via agent status/events. License: `@getpaseo/client@0.4.0` ships no license field; monorepo root is AGPL-3.0 — fine for never-closed-source. Probe scripts: `scripts/spike-0a*.mjs` | 2026-08-20 |
 | 0b | HTML-in-canvas on Cromite? | — | — |
 | 0c | STT engine options on device? | — | — |
 | 0d | Pages → local daemon connectivity? | — | — |
