@@ -39,6 +39,7 @@ interface DaemonWorkspace {
   projectDisplayName?: string | null;
   workspaceKind?: string;
   workspaceDirectory?: string | null;
+  projectRootPath?: string | null;
   status?: string;
   archivingAt?: string | null;
   diffStat?: string | null;
@@ -99,6 +100,7 @@ function mapWorkspace(w: DaemonWorkspace): GatewayWorkspace | null {
     projectDisplayName: w.projectDisplayName ?? w.id,
     workspaceKind: w.workspaceKind ?? "local_checkout",
     directory: w.workspaceDirectory ?? null,
+    projectRootPath: w.projectRootPath ?? null,
     branch: git?.currentBranch ?? null,
     remoteUrl: git?.remoteUrl ?? null,
     isDirty: git?.isDirty ?? null,

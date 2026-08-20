@@ -1,8 +1,8 @@
 import { createGraphStore, type GraphStore } from "../graph/store";
 import { persistSnapshot, loadSnapshot, UnlimigentDb } from "../graph/persist";
-import { connectGateway } from "../gateway/project";
+import { projectGatewayEvent } from "../gateway/project";
+import type { GatewayEvent, PaseoGateway } from "../gateway/types";
 import { MockPaseoGateway } from "../gateway/mock";
-import type { PaseoGateway } from "../gateway/types";
 import { IntentBus } from "../intents/bus";
 
 export interface Runtime {
@@ -33,6 +33,8 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let started = false;
+  let centered = false;
+  let userMovedCamera = false;
 
   const scheduleSave = () => {
     if (saveTimer !== null) clearTimeout(saveTimer);
@@ -40,6 +42,26 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       saveTimer = null;
       saveNow(() => persistSnapshot(db, store.getState().snapshot()));
     }, debounceMs);
+  };
+
+  /** A restored camera can point at an empty stretch of canvas — after the
+   * first snapshot we center on the graph (root server) unless the user has
+   * already moved the camera this session. */
+  const maybeCenter = () => {
+    if (centered || userMovedCamera) return;
+    centered = true;
+    const state = store.getState();
+    const root =
+      Object.values(state.nodes).find((n) => n.kind === "server") ??
+      Object.values(state.nodes)[0];
+    if (root) {
+      state.setCamera({ x: root.position.x, y: root.position.y });
+    }
+  };
+
+  const onGatewayEvent = (event: GatewayEvent) => {
+    projectGatewayEvent(store, event);
+    if (event.kind === "snapshot") maybeCenter();
   };
 
   return {
@@ -52,7 +74,10 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       const snap = await loadSnapshot(db);
       if (snap) store.getState().restore(snap);
       store.subscribe(scheduleSave);
-      connectGateway(store, gateway);
+      bus.onAny((intent) => {
+        if (intent.type.startsWith("camera.")) userMovedCamera = true;
+      });
+      gateway.subscribe(onGatewayEvent);
       gateway.start();
     },
     stop() {

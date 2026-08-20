@@ -70,9 +70,19 @@ function ensureServer(store: GraphStore, host: string): string {
   }).id;
 }
 
-function ensureProject(store: GraphStore, serverId: string, projectId: string, name: string): string {
+function ensureProject(
+  store: GraphStore,
+  serverId: string,
+  projectId: string,
+  name: string,
+  rootPath: string | null,
+): string {
   const existing = findByExternalId(store, projectId);
-  if (existing) return existing.id;
+  if (existing) {
+    store.getState().setNodeTitle(existing.id, name);
+    if (rootPath) store.getState().nodes[existing.id]!.meta = { ...existing.meta, path: rootPath };
+    return existing.id;
+  }
   const siblings = Object.values(store.getState().nodes).filter(
     (n) => n.parentId === serverId && n.kind === "project",
   );
@@ -88,6 +98,7 @@ function ensureProject(store: GraphStore, serverId: string, projectId: string, n
       x: 4 + Math.cos(angle) * 3,
       y: Math.sin(angle) * 3,
     },
+    meta: { path: rootPath },
   }).id;
 }
 
@@ -95,14 +106,20 @@ function upsertWorkspace(store: GraphStore, projectId: string, ws: GatewayWorksp
   const existing = findByExternalId(store, ws.id);
   const kind = ws.workspaceKind === "worktree" ? "worktree" : "workspace";
   const meta = workspaceMeta(ws);
-  const title = kind === "worktree" ? (ws.branch ?? ws.name) : ws.name;
+  // workspace/worktree nodes are info nodes: branch as the title; sub is
+  // "Local" for checkouts or the worktree folder name for worktrees
+  const title = ws.branch ?? ws.name;
+  const folder = ws.directory?.split("/").filter(Boolean).pop() ?? null;
 
   if (existing) {
     // persisted graphs can predate hierarchy fixes — trust the daemon, always
     const reparented = store.getState().reparent(existing.id, projectId);
     store.getState().setNodeTitle(existing.id, title);
     store.getState().setNodeStatus(existing.id, workspaceStatus(ws));
-    store.getState().nodes[existing.id]!.meta = { ...meta, worktree: kind === "worktree" ? ws.name : null };
+    store.getState().nodes[existing.id]!.meta = {
+      ...meta,
+      worktree: kind === "worktree" ? (folder ?? ws.name) : null,
+    };
     return reparented;
   }
 
@@ -122,7 +139,7 @@ function upsertWorkspace(store: GraphStore, projectId: string, ws: GatewayWorksp
       x: 3 + i * 0.4,
       y: -2.2 - i * 1.8,
     },
-    meta: { ...meta, worktree: kind === "worktree" ? ws.name : null },
+    meta: { ...meta, worktree: kind === "worktree" ? (folder ?? ws.name) : null },
   });
   return true;
 }
@@ -193,7 +210,13 @@ function applySnapshot(store: GraphStore, snapshot: GatewaySnapshot): void {
   const serverId = ensureServer(store, snapshot.daemonHost);
   let changed = false;
   for (const ws of snapshot.workspaces) {
-    const projectId = ensureProject(store, serverId, ws.projectId, ws.projectDisplayName);
+    const projectId = ensureProject(
+      store,
+      serverId,
+      ws.projectId,
+      ws.projectDisplayName,
+      ws.projectRootPath,
+    );
     changed = upsertWorkspace(store, projectId, ws) || changed;
   }
   for (const agent of snapshot.agents) changed = upsertAgent(store, agent) || changed;
@@ -221,7 +244,13 @@ export function projectGatewayEvent(store: GraphStore, event: GatewayEvent): voi
         (n) => n.kind === "server" && n.origin === "gateway",
       );
       if (server) {
-        const projectId = ensureProject(store, server.id, event.workspace.projectId, event.workspace.projectDisplayName);
+        const projectId = ensureProject(
+          store,
+          server.id,
+          event.workspace.projectId,
+          event.workspace.projectDisplayName,
+          event.workspace.projectRootPath,
+        );
         upsertWorkspace(store, projectId, event.workspace);
       }
       break;

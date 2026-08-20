@@ -29,7 +29,6 @@ export interface GraphState {
 
   addNode: (init: Parameters<typeof createNode>[0]) => GraphNode;
   moveNode: (id: string, position: Vec2) => void;
-  pinNode: (id: string, pinned: boolean) => void;
   setNodeStatus: (id: string, status: GraphNode["status"]) => void;
   setNodeTitle: (id: string, title: string) => void;
   removeNode: (id: string) => void;
@@ -76,13 +75,6 @@ export function createGraphStore() {
         const node = state.nodes[id];
         if (!node) return state;
         return { nodes: { ...state.nodes, [id]: { ...node, position } } };
-      }),
-
-    pinNode: (id, pinned) =>
-      set((state) => {
-        const node = state.nodes[id];
-        if (!node) return state;
-        return { nodes: { ...state.nodes, [id]: { ...node, pinned } } };
       }),
 
     setNodeStatus: (id, status) =>

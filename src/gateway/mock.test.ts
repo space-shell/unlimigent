@@ -29,6 +29,7 @@ const snapshot = (): GatewaySnapshot => ({
       projectDisplayName: "proj",
       workspaceKind: "local_checkout",
       directory: "/p/a",
+      projectRootPath: "/p/a",
       branch: "main",
       remoteUrl: null,
       isDirty: false,
@@ -46,6 +47,7 @@ const snapshot = (): GatewaySnapshot => ({
       projectDisplayName: "proj",
       workspaceKind: "worktree",
       directory: "/p/a/.worktrees/b",
+      projectRootPath: "/p/a",
       branch: "feat",
       remoteUrl: "git@github.com:x/y.git",
       isDirty: false,
@@ -97,16 +99,19 @@ describe("gateway projection", () => {
     expect(agent.parentId).toBe(ws.id);
   });
 
-  it("titles workspaces by name with path sub, worktrees by branch with worktree sub", () => {
+  it("workspace nodes: branch title + Local sub; worktrees: branch title + folder sub; project carries path", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     const nodes = store.getState().nodes;
+    const project = Object.values(nodes).find((n) => n.kind === "project");
     const ws = Object.values(nodes).find((n) => n.externalId === "wks_a");
     const wt = Object.values(nodes).find((n) => n.externalId === "wks_b");
-    expect(ws?.title).toBe("workspace a");
-    expect(ws?.meta.path).toBe("/p/a");
+    expect(ws?.title).toBe("main");
+    expect(ws?.meta.worktree).toBeNull();
     expect(wt?.title).toBe("feat");
-    expect(wt?.meta.worktree).toBe("worktree b");
+    expect(wt?.meta.worktree).toBe("b");
     expect(wt?.meta.pr).toBe("open: pr 1");
+    expect(project?.title).toBe("proj");
+    expect(project?.meta.path).toBe("/p/a");
   });
 
   it("marks workspaces with open PRs as attention", () => {

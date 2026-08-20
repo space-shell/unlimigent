@@ -15,10 +15,14 @@ const LAYOUT_OPTIONS = {
   "elk.nodeSize.minimum": "(1.5, 4)",
 };
 
-/** Node footprint in world units after the plate's 90° Z-rotation (tall in
- * Y, narrow in X). Keep in sync with PLATE_W in canvas/GroundNodes.tsx. */
+/** Node footprints in world units after the plate's 90° Z-rotation (tall in
+ * Y, narrow in X). Info nodes (server/project/workspace/worktree) are shorter
+ * than content nodes (agents). Keep in sync with GroundNodes specs. */
 export const ELK_NODE_W = 1.5;
-export const ELK_NODE_H = 4;
+export const ELK_INFO_H = 1.5;
+export const ELK_CONTENT_H = 4;
+
+const INFO_KINDS = new Set(["server", "project", "workspace", "worktree"]);
 
 export interface ArrangeResult {
   moved: number;
@@ -26,13 +30,9 @@ export interface ArrangeResult {
 
 const snap = (v: number) => Math.round(v / GRID_WORLD) * GRID_WORLD;
 
-/** Snap a single coordinate to the grid (used by manual node drags too). */
-export const snapToGrid = snap;
-
 /** Auto-arrange the whole graph with elk layered layout, snapped to the
- * grid so nodes sit on the plus-mark intersections. Runs automatically when
- * a gateway snapshot adds nodes; manually placed (pinned) nodes keep their
- * position. */
+ * grid so nodes sit on the plus-mark intersections. There is no manual
+ * placement — the graph is always daemon-arranged. */
 export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
   const state = store.getState();
   const nodes = Object.values(state.nodes);
@@ -44,7 +44,7 @@ export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
     children: nodes.map((n) => ({
       id: n.id,
       width: ELK_NODE_W,
-      height: ELK_NODE_H,
+      height: INFO_KINDS.has(n.kind) ? ELK_INFO_H : ELK_CONTENT_H,
     })),
     edges: Object.values(state.edges).map((e) => ({
       id: e.id,
@@ -57,9 +57,6 @@ export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
   for (const child of layout.children ?? []) {
     const node = store.getState().nodes[child.id];
     if (!node) continue;
-    // pinning is a user-manual-placement concept: it never applies to
-    // daemon-owned nodes (stale pins from persisted graphs are ignored)
-    if (node.pinned && node.origin !== "gateway") continue;
     const x = snap(child.x ?? 0);
     const y = snap(child.y ?? 0);
     if (node.position.x !== x || node.position.y !== y) {

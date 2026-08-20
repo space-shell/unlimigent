@@ -13,7 +13,8 @@ export interface CameraControllerOptions {
   now?: () => number;
 }
 
-const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+const easeInOutCubic = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 /** Applies camera/nav intents to the graph store. The three.js camera is a
  * dumb consumer of store camera state — all decisions happen here. */
@@ -32,7 +33,7 @@ export class CameraController {
   ) {
     this.raf = options.requestAnimationFrame ?? ((cb) => globalThis.requestAnimationFrame(cb));
     this.caf = options.cancelAnimationFrame ?? ((h) => globalThis.cancelAnimationFrame(h));
-    this.ease = options.ease ?? easeOutCubic;
+    this.ease = options.ease ?? easeInOutCubic;
     this.now = options.now ?? (() => performance.now());
   }
 

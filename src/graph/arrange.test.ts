@@ -26,17 +26,6 @@ describe("autoArrange", () => {
     }
   });
 
-  it("keeps pinned nodes where the user placed them", async () => {
-    const store = createGraphStore();
-    const s = store.getState();
-    const a = s.addNode({ kind: "server", title: "srv", position: { x: 123, y: 45 } });
-    s.addNode({ kind: "agent", title: "a", parentId: a.id, position: { x: 0, y: 0 } });
-    s.pinNode(a.id, true);
-    const result = await autoArrange(store);
-    expect(store.getState().nodes[a.id]!.position).toEqual({ x: 123, y: 45 });
-    expect(result.moved).toBe(1);
-  });
-
   it("is a no-op on an empty graph", async () => {
     const store = createGraphStore();
     expect(await autoArrange(store)).toEqual({ moved: 0 });

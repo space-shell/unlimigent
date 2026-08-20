@@ -13,6 +13,8 @@ export interface GatewayWorkspace {
   workspaceKind: string;
   /** Filesystem path of the checkout/worktree. */
   directory: string | null;
+  /** Root path of the owning project (shown on project nodes). */
+  projectRootPath: string | null;
   branch: string | null;
   remoteUrl: string | null;
   isDirty: boolean | null;
