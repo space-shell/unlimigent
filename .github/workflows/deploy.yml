@@ -1,11 +1,13 @@
 name: Deploy to GitHub Pages
 
-# Deploys on every push to main - the on-the-go device-test surface
-# (OnePlus Pad 3 / Cromite). One-time repo setup:
-#   Settings -> Pages -> Source: GitHub Actions
+# Checks + deploy on every push to main - main always shippable.
+# The on-the-go device-test surface (OnePlus Pad 3 / Cromite):
+#   https://space-shell.github.io/unlimigent/
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -15,28 +17,41 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
 
-      # Stage 0 replaces this with the Vite pipeline:
-      #   npm ci && npm run build  (dist/)
-      # Remember: set vite `base` to "/<repo-name>/" for project pages.
-      - name: Assemble site artifact
-        run: |
-          mkdir -p dist
-          cp -r site/. dist/
-
+  build:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
