@@ -104,4 +104,31 @@ describe("graph store", () => {
     expect(p1).not.toEqual(p2);
     expect(Math.hypot(p2.x, p2.y)).toBeGreaterThan(0);
   });
+
+  it("collapse hides descendants and uncollapsing restores them", () => {
+    const s = store.getState();
+    const server = s.addNode({ kind: "server", title: "srv" });
+    const ws = s.addNode({ kind: "workspace", title: "ws", parentId: server.id });
+    const agent = s.addNode({ kind: "agent", title: "a", parentId: ws.id });
+    expect(s.isHiddenByCollapse(agent.id)).toBe(false);
+    s.toggleCollapsed(server.id);
+    const after = store.getState();
+    expect(after.collapsedIds.has(server.id)).toBe(true);
+    expect(after.isHiddenByCollapse(ws.id)).toBe(true);
+    expect(after.isHiddenByCollapse(agent.id)).toBe(true);
+    expect(after.isHiddenByCollapse(server.id)).toBe(false);
+    after.toggleCollapsed(server.id);
+    expect(store.getState().isHiddenByCollapse(agent.id)).toBe(false);
+  });
+
+  it("collapse state round-trips through snapshot/restore", () => {
+    const s = store.getState();
+    const server = s.addNode({ kind: "server", title: "srv" });
+    s.addNode({ kind: "workspace", title: "ws", parentId: server.id });
+    s.toggleCollapsed(server.id);
+    const snap = s.snapshot();
+    s.clear();
+    s.restore(snap);
+    expect(store.getState().collapsedIds.has(server.id)).toBe(true);
+  });
 });

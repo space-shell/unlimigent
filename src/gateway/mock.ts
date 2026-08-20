@@ -12,56 +12,84 @@ const DEFAULT_SCENARIO: MockScenario = {
     workspaces: [
       {
         id: "wks_unlimigent",
-        title: "spatial canvas foundations",
+        name: "spatial canvas foundations",
+        title: null,
         projectId: "prj_unlimigent",
         projectDisplayName: "unlimigent",
         workspaceKind: "local_checkout",
+        directory: "/home/jamesnicholls/projects/unlimigent",
         branch: "main",
         remoteUrl: "git@github.com:space-shell/unlimigent.git",
+        isDirty: true,
+        ahead: 2,
+        behind: 0,
         pullRequest: null,
+        diffStat: "+412 −38",
         status: "active",
       },
       {
         id: "wks_voice",
-        title: "voice command interpretation",
+        name: "voice command interpretation",
+        title: null,
         projectId: "prj_unlimigent",
         projectDisplayName: "unlimigent",
         workspaceKind: "worktree",
+        directory: "/home/jamesnicholls/projects/unlimigent/.worktrees/voice",
         branch: "voice-commands",
         remoteUrl: "git@github.com:space-shell/unlimigent.git",
+        isDirty: false,
+        ahead: 0,
+        behind: 1,
         pullRequest: { title: "voice: intent mapping", state: "open" },
+        diffStat: "+1.2k −210",
         status: "active",
       },
       {
         id: "wks_xagent",
-        title: "xagent refactor",
+        name: "xagent refactor",
+        title: null,
         projectId: "prj_xagent",
         projectDisplayName: "xagent",
         workspaceKind: "local_checkout",
+        directory: "/home/jamesnicholls/tmp/xagent",
         branch: "main",
         remoteUrl: "git@github.com:space-shell/xagent.git",
+        isDirty: false,
+        ahead: 0,
+        behind: 0,
         pullRequest: null,
+        diffStat: null,
         status: "active",
       },
     ],
     agents: [
       {
         id: "agt_opencode_main",
+        title: "stage 2 canvas polish",
         provider: "opencode",
         model: "glm-5.3",
         cwd: "/home/jamesnicholls/projects/unlimigent",
         workspaceId: "wks_unlimigent",
         status: "running",
-        title: "stage 1 graph core",
+        mode: "build",
+        requiresAttention: false,
+        attentionReason: null,
+        pendingPermissions: 0,
+        lastActivityAt: "2026-08-20T19:00:00Z",
       },
       {
         id: "agt_codex_voice",
+        title: "voice prompt drafts",
         provider: "codex",
         model: "gpt-5.5",
         cwd: "/home/jamesnicholls/projects/unlimigent/.worktrees/voice",
         workspaceId: "wks_voice",
         status: "attention",
-        title: "voice prompt drafts",
+        mode: "build",
+        requiresAttention: true,
+        attentionReason: "permission request",
+        pendingPermissions: 1,
+        lastActivityAt: "2026-08-20T18:40:00Z",
       },
     ],
   },
@@ -87,42 +115,59 @@ export interface MockPaseoGatewayOptions {
 }
 
 /** Deterministic large scenario for the Stage 2 device perf bar
- * (20+ nodes as project-root + worktree pairs, one agent flapping). */
+ * (project-root + worktree pairs, agents flapping for live updates). */
 export function largeScenario(projectCount = 12): MockScenario {
   const workspaces: GatewayWorkspace[] = [];
   const agents: GatewayAgent[] = [];
   for (let p = 0; p < projectCount; p++) {
     workspaces.push({
       id: `wks_large_root_${p}`,
-      title: `feature ${p}`,
+      name: `feature ${p}`,
+      title: null,
       projectId: `prj_large_${p}`,
       projectDisplayName: `proj-${p}`,
       workspaceKind: "local_checkout",
+      directory: `/home/dev/proj-${p}`,
       branch: "main",
       remoteUrl: "git@github.com:space-shell/unlimigent.git",
+      isDirty: false,
+      ahead: 0,
+      behind: 0,
       pullRequest: null,
+      diffStat: null,
       status: "active",
     });
     workspaces.push({
       id: `wks_large_wt_${p}`,
-      title: `feature ${p} · spike`,
+      name: `feature ${p} spike`,
+      title: null,
       projectId: `prj_large_${p}`,
       projectDisplayName: `proj-${p}`,
       workspaceKind: "worktree",
+      directory: `/home/dev/proj-${p}/.worktrees/spike-${p}`,
       branch: `feat-${p}`,
       remoteUrl: "git@github.com:space-shell/unlimigent.git",
+      isDirty: p % 3 === 0,
+      ahead: p,
+      behind: 0,
       pullRequest: p % 4 === 0 ? { title: `pr ${p}`, state: "open" } : null,
+      diffStat: `+${100 + p * 7} −${p * 3}`,
       status: "active",
     });
     if (p % 2 === 0) {
       agents.push({
         id: `agt_large_${p}`,
+        title: `task ${p}`,
         provider: p % 4 === 0 ? "opencode" : "codex",
         model: p % 4 === 0 ? "glm-5.3" : "gpt-5.5",
         cwd: `/w/${p}`,
         workspaceId: p % 3 === 0 ? `wks_large_wt_${p}` : `wks_large_root_${p}`,
         status: p % 6 === 0 ? "attention" : "running",
-        title: `task ${p}`,
+        mode: "build",
+        requiresAttention: p % 6 === 0,
+        attentionReason: p % 6 === 0 ? "permission request" : null,
+        pendingPermissions: p % 6 === 0 ? 1 : 0,
+        lastActivityAt: "2026-08-20T18:00:00Z",
       });
     }
   }
@@ -151,7 +196,6 @@ export function largeScenario(projectCount = 12): MockScenario {
 export class MockPaseoGateway implements PaseoGateway {
   private listeners = new Set<GatewayListener>();
   private handle: unknown = null;
-  private tickIndex = 0;
   private readonly options: Required<Pick<MockPaseoGatewayOptions, "tickMs">> &
     MockPaseoGatewayOptions;
   private snapshot: GatewaySnapshot;
@@ -189,9 +233,7 @@ export class MockPaseoGateway implements PaseoGateway {
 
   private tick(): void {
     const scenario = this.options.scenario!;
-    const events = scenario.script(this.snapshot);
-    for (const event of events) this.emit(event);
-    this.tickIndex += 1;
+    for (const event of scenario.script(this.snapshot)) this.emit(event);
   }
 
   private emit(event: GatewayEvent): void {

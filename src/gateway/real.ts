@@ -11,8 +11,9 @@ import type {
 const DEFAULT_URL = "ws://100.127.193.39:6767/ws";
 const POLL_MS = 4000;
 
-/** Minimal structural types for what we read off the daemon (spike 0a).
- * Kept local and permissive — the daemon is the source of truth, not these. */
+/** Minimal structural types for what we read off the daemon (spike 0a +
+ * live probe 2026-08-20). Kept local and permissive — the daemon is the
+ * source of truth, not these. */
 interface DaemonAgent {
   id: string;
   provider?: string;
@@ -20,51 +21,78 @@ interface DaemonAgent {
   cwd?: string;
   workspaceId?: string | null;
   status?: string;
+  title?: string | null;
+  currentModeId?: string | null;
+  requiresAttention?: boolean;
+  attentionReason?: string | null;
+  pendingPermissions?: Array<unknown> | null;
+  lastUserMessageAt?: string | null;
+  updatedAt?: string | null;
 }
 
 interface DaemonWorkspace {
   id: string;
+  name?: string | null;
   title?: string | null;
   projectId?: string;
   projectDisplayName?: string | null;
   workspaceKind?: string;
+  workspaceDirectory?: string | null;
   status?: string;
-  gitRuntime?: { currentBranch?: string | null; remoteUrl?: string | null } | null;
+  diffStat?: string | null;
+  gitRuntime?: {
+    currentBranch?: string | null;
+    remoteUrl?: string | null;
+    isDirty?: boolean | null;
+    aheadOfOrigin?: number | null;
+    behindOfOrigin?: number | null;
+  } | null;
   githubRuntime?: { pullRequest?: { title?: string; state?: string } | null } | null;
 }
 
-function mapStatus(status: string | undefined): GatewayAgent["status"] {
-  if (status === "running") return "running";
-  if (status === "permission" || status === "attention") return "attention";
-  if (status === "error") return "error";
+function mapStatus(a: DaemonAgent): GatewayAgent["status"] {
+  if (a.requiresAttention || (a.pendingPermissions?.length ?? 0) > 0) return "attention";
+  if (a.status === "running") return "running";
+  if (a.status === "error") return "error";
   return "idle";
 }
 
 function mapAgent(a: DaemonAgent): GatewayAgent {
   const cwd = a.cwd ?? "";
-  const leaf = cwd.split("/").filter(Boolean).pop() ?? cwd;
   return {
     id: a.id,
+    title: a.title ?? cwd.split("/").filter(Boolean).pop() ?? `agent ${a.id.slice(0, 6)}`,
     provider: a.provider ?? "unknown",
     model: a.model ?? "unknown",
     cwd,
     workspaceId: a.workspaceId ?? null,
-    status: mapStatus(a.status),
-    title: leaf || `${a.provider ?? "agent"} ${a.id.slice(0, 6)}`,
+    status: mapStatus(a),
+    mode: a.currentModeId ?? null,
+    requiresAttention: a.requiresAttention ?? false,
+    attentionReason: a.attentionReason ?? null,
+    pendingPermissions: a.pendingPermissions?.length ?? 0,
+    lastActivityAt: a.lastUserMessageAt ?? a.updatedAt ?? null,
   };
 }
 
 function mapWorkspace(w: DaemonWorkspace): GatewayWorkspace {
   const pr = w.githubRuntime?.pullRequest ?? null;
+  const git = w.gitRuntime ?? null;
   return {
     id: w.id,
-    title: w.title ?? w.projectDisplayName ?? w.id,
+    name: w.name ?? w.title ?? w.id,
+    title: w.title ?? null,
     projectId: w.projectId ?? w.id,
     projectDisplayName: w.projectDisplayName ?? w.id,
     workspaceKind: w.workspaceKind ?? "local_checkout",
-    branch: w.gitRuntime?.currentBranch ?? null,
-    remoteUrl: w.gitRuntime?.remoteUrl ?? null,
+    directory: w.workspaceDirectory ?? null,
+    branch: git?.currentBranch ?? null,
+    remoteUrl: git?.remoteUrl ?? null,
+    isDirty: git?.isDirty ?? null,
+    ahead: git?.aheadOfOrigin ?? null,
+    behind: git?.behindOfOrigin ?? null,
     pullRequest: pr ? { title: pr.title ?? "pr", state: pr.state ?? "open" } : null,
+    diffStat: w.diffStat ?? null,
     status: w.status ?? "active",
   };
 }

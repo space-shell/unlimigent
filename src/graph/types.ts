@@ -47,6 +47,7 @@ export interface GraphSnapshot {
   version: 1;
   nodes: Record<string, GraphNode>;
   edges: Record<string, GraphEdge>;
+  collapsedIds?: string[];
 }
 
 export const GRAPH_SNAPSHOT_VERSION = 1;

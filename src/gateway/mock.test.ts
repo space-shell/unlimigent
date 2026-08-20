@@ -23,36 +23,53 @@ const snapshot = (): GatewaySnapshot => ({
   workspaces: [
     {
       id: "wks_a",
-      title: "workspace a",
+      name: "workspace a",
+      title: null,
       projectId: "prj_1",
       projectDisplayName: "proj",
       workspaceKind: "local_checkout",
+      directory: "/p/a",
       branch: "main",
       remoteUrl: null,
+      isDirty: false,
+      ahead: 0,
+      behind: 0,
       pullRequest: null,
+      diffStat: null,
       status: "active",
     },
     {
       id: "wks_b",
-      title: "worktree b",
+      name: "worktree b",
+      title: null,
       projectId: "prj_1",
       projectDisplayName: "proj",
       workspaceKind: "worktree",
+      directory: "/p/a/.worktrees/b",
       branch: "feat",
       remoteUrl: "git@github.com:x/y.git",
+      isDirty: false,
+      ahead: 0,
+      behind: 0,
       pullRequest: { title: "pr 1", state: "open" },
+      diffStat: "+1 −1",
       status: "active",
     },
   ],
   agents: [
     {
       id: "agt_1",
+      title: "agent one",
       provider: "opencode",
       model: "glm-5.3",
       cwd: "/p",
       workspaceId: "wks_a",
       status: "running",
-      title: "agent one",
+      mode: "build",
+      requiresAttention: false,
+      attentionReason: null,
+      pendingPermissions: 0,
+      lastActivityAt: null,
     },
   ],
 });
@@ -83,6 +100,34 @@ describe("gateway projection", () => {
     expect(worktree?.parentId).toBe(root?.id);
   });
 
+  it("titles workspaces by name with path sub, worktrees by branch with worktree sub", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const nodes = store.getState().nodes;
+    const root = Object.values(nodes).find((n) => n.externalId === "wks_a");
+    const worktree = Object.values(nodes).find((n) => n.externalId === "wks_b");
+    expect(root?.title).toBe("workspace a");
+    expect(root?.meta.path).toBe("/p/a");
+    expect(worktree?.title).toBe("feat");
+    expect(worktree?.meta.worktree).toBe("worktree b");
+    expect(worktree?.meta.pr).toBe("open: pr 1");
+  });
+
+  it("marks agents attention when permissions are pending", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    projectGatewayEvent(store, {
+      kind: "agent-updated",
+      agent: {
+        ...snapshot().agents[0]!,
+        status: "idle",
+        requiresAttention: true,
+        pendingPermissions: 2,
+      },
+    });
+    const agent = Object.values(store.getState().nodes).find((n) => n.kind === "agent");
+    expect(agent?.status).toBe("attention");
+    expect(agent?.meta.permissions).toBe("2");
+  });
+
   it("marks workspaces with open PRs as attention", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     const b = Object.values(store.getState().nodes).find((n) => n.externalId === "wks_b");
@@ -94,13 +139,10 @@ describe("gateway projection", () => {
     projectGatewayEvent(store, {
       kind: "agent-updated",
       agent: {
-        id: "agt_1",
-        provider: "opencode",
-        model: "glm-5.3",
-        cwd: "/p",
-        workspaceId: "wks_a",
+        ...snapshot().agents[0]!,
         status: "idle",
-        title: "agent one",
+        requiresAttention: false,
+        pendingPermissions: 0,
       },
     });
     const agents = Object.values(store.getState().nodes).filter((n) => n.kind === "agent");

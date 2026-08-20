@@ -1,27 +1,42 @@
-// Gateway data shapes mirror what the daemon actually returns (spike 0a,
-// @getpaseo/client 0.4.0). The graph never imports @getpaseo/client — only
-// the real gateway (Stage 4) does.
+// Gateway data shapes mirror what the daemon actually returns (spike 0a +
+// live probe 2026-08-20, @getpaseo/client 0.4.0). The graph never imports
+// @getpaseo/client — only the real gateway does.
 
 export interface GatewayWorkspace {
   id: string;
-  title: string;
+  /** Workspace name (daemon `name`, falls back to `title`). */
+  name: string;
+  /** Human title from the daemon, when different. */
+  title: string | null;
   projectId: string;
   projectDisplayName: string;
   workspaceKind: string;
+  /** Filesystem path of the checkout/worktree. */
+  directory: string | null;
   branch: string | null;
   remoteUrl: string | null;
+  isDirty: boolean | null;
+  ahead: number | null;
+  behind: number | null;
   pullRequest: { title: string; state: string } | null;
+  diffStat: string | null;
   status: string;
 }
 
 export interface GatewayAgent {
   id: string;
+  /** Daemon-provided agent title. */
+  title: string;
   provider: string;
   model: string;
   cwd: string;
   workspaceId: string | null;
   status: "idle" | "running" | "attention" | "error";
-  title: string;
+  mode: string | null;
+  requiresAttention: boolean;
+  attentionReason: string | null;
+  pendingPermissions: number;
+  lastActivityAt: string | null;
 }
 
 export interface GatewaySnapshot {

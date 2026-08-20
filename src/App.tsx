@@ -9,11 +9,11 @@ import { RuntimeProvider } from "./app/RuntimeProvider";
 import { largeScenario, MockPaseoGateway } from "./gateway/mock";
 import { FallbackGateway, RealPaseoGateway } from "./gateway/real";
 import { GridLayer } from "./canvas/GridLayer";
-import { NodeShadows } from "./canvas/NodeShadows";
+import { useCanvasGestures } from "./canvas/Gestures";
 import { CameraRig } from "./canvas/CameraRig";
-import { NodeLayer } from "./canvas/NodeLayer";
+import { GroundCatcher } from "./canvas/GroundCatcher";
+import { GroundNodes } from "./canvas/GroundNodes";
 import { EdgeOverlay } from "./canvas/EdgeOverlay";
-import { GestureLayer } from "./canvas/GestureLayer";
 import { InfoBar } from "./canvas/InfoBar";
 
 function useViewport() {
@@ -32,6 +32,7 @@ function useViewport() {
 
 function GraphApp() {
   const viewport = useViewport();
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<Runtime | null>(null);
   if (runtimeRef.current === null) {
     const params = new URLSearchParams(globalThis.location.search);
@@ -45,24 +46,26 @@ function GraphApp() {
     runtimeRef.current = createRuntime({ gateway });
   }
   const runtime = runtimeRef.current;
+  useCanvasGestures(canvasWrapRef, runtime);
 
   return (
     <RuntimeProvider runtime={runtime}>
       <div className="graph-root">
-        <Canvas
-          orthographic
-          camera={{ position: [0, 0, 10], zoom: 48 }}
-          dpr={[1, 2]}
-          gl={{ antialias: true }}
-        >
-          <color attach="background" args={[tokens.paper]} />
-          <CameraRig />
-          <NodeShadows />
-          <NodeLayer runtime={runtime} viewport={viewport} />
-        </Canvas>
+        <div ref={canvasWrapRef} className="canvas-wrap">
+          <Canvas
+            orthographic
+            camera={{ position: [0, 0, 10], zoom: 48 }}
+            dpr={[1, 2]}
+            gl={{ antialias: true }}
+          >
+            <color attach="background" args={[tokens.paper]} />
+            <CameraRig />
+            <GroundCatcher runtime={runtime} />
+            <GroundNodes runtime={runtime} viewport={viewport} />
+          </Canvas>
+        </div>
         <GridLayer runtime={runtime} viewport={viewport} />
         <EdgeOverlay runtime={runtime} viewport={viewport} />
-        <GestureLayer runtime={runtime} />
         <InfoBar runtime={runtime} />
       </div>
     </RuntimeProvider>

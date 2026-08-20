@@ -58,5 +58,9 @@ export function parseSnapshot(json: string): GraphSnapshot {
   ) {
     throw new Error("invalid snapshot: expected version 1 graph");
   }
-  return parsed as GraphSnapshot;
+  const snap = parsed as GraphSnapshot;
+  if (snap.collapsedIds !== undefined && !Array.isArray(snap.collapsedIds)) {
+    throw new Error("invalid snapshot: collapsedIds must be an array");
+  }
+  return snap;
 }

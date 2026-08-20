@@ -1,16 +1,46 @@
 import type { GraphStore } from "../graph/store";
 import { autoArrange } from "../graph/arrange";
-import type { NodeStatus } from "../graph/types";
+import type { GraphNode, NodeStatus } from "../graph/types";
 import type { GatewayAgent, GatewayEvent, GatewaySnapshot, GatewayWorkspace } from "./types";
 
-function agentStatus(status: GatewayAgent["status"]): NodeStatus {
-  return status;
+function agentStatus(agent: GatewayAgent): NodeStatus {
+  if (agent.requiresAttention || agent.pendingPermissions > 0) return "attention";
+  return agent.status;
 }
 
 function workspaceStatus(ws: GatewayWorkspace): NodeStatus {
   if (ws.status === "done" || ws.status === "archived") return "archived";
   if (ws.pullRequest) return "attention";
   return "idle";
+}
+
+/** Presentation meta per node kind — titles/subs live here so cards, info
+ * bar, and detail LOD all agree (daemon field mapping, probe 2026-08-20). */
+function workspaceMeta(ws: GatewayWorkspace): GraphNode["meta"] {
+  const gitBits: Array<string> = [];
+  if (ws.isDirty) gitBits.push("dirty");
+  if (ws.ahead) gitBits.push(`↑${ws.ahead}`);
+  if (ws.behind) gitBits.push(`↓${ws.behind}`);
+  return {
+    branch: ws.branch,
+    path: ws.directory,
+    remote: ws.remoteUrl,
+    pr: ws.pullRequest ? `${ws.pullRequest.state}: ${ws.pullRequest.title}` : null,
+    diff: ws.diffStat,
+    git: gitBits.length ? gitBits.join(" ") : null,
+  };
+}
+
+function agentMeta(agent: GatewayAgent): GraphNode["meta"] {
+  return {
+    provider: agent.provider,
+    model: agent.model,
+    mode: agent.mode,
+    cwd: agent.cwd,
+    permissions: agent.pendingPermissions > 0 ? String(agent.pendingPermissions) : null,
+    attention: agent.attentionReason,
+    activity: agent.lastActivityAt,
+  };
 }
 
 function isWorktreeKind(ws: GatewayWorkspace): boolean {
@@ -26,12 +56,7 @@ function upsertWorkspace(
   const existing = Object.values(state.nodes).find(
     (n) => n.origin === "gateway" && n.externalId === ws.id,
   );
-  const meta = {
-    branch: ws.branch,
-    remote: ws.remoteUrl,
-    pr: ws.pullRequest ? `${ws.pullRequest.state}:${ws.pullRequest.title}` : null,
-    projectId: ws.projectId,
-  };
+  const meta = workspaceMeta(ws);
 
   // worktrees hang off their project's root workspace; roots hang off the server
   let parentId = serverId;
@@ -50,7 +75,10 @@ function upsertWorkspace(
   }
 
   if (existing) {
-    store.getState().setNodeTitle(existing.id, ws.title);
+    store.getState().setNodeTitle(
+      existing.id,
+      isWorktreeKind(ws) ? (ws.branch ?? ws.name) : ws.name,
+    );
     store.getState().setNodeStatus(existing.id, workspaceStatus(ws));
     store.getState().nodes[existing.id]!.meta = meta;
     return false;
@@ -63,7 +91,8 @@ function upsertWorkspace(
     const i = siblings.length;
     store.getState().addNode({
       kind: "worktree",
-      title: ws.title,
+      // worktree: branch as title, worktree name as sub
+      title: ws.branch ?? ws.name,
       parentId,
       origin: "gateway",
       externalId: ws.id,
@@ -72,7 +101,7 @@ function upsertWorkspace(
         x: anchor.x + 3 + i * 0.5,
         y: anchor.y - 2.4 - i * 0.35,
       },
-      meta,
+      meta: { ...meta, projectId: ws.projectId, worktree: ws.name },
     });
     return true;
   }
@@ -84,7 +113,8 @@ function upsertWorkspace(
   const angle = (i * Math.PI) / 4 - Math.PI / 2;
   store.getState().addNode({
     kind: "workspace",
-    title: ws.title,
+    // workspace: name as title, folder path as sub
+    title: ws.name,
     parentId,
     origin: "gateway",
     externalId: ws.id,
@@ -93,7 +123,7 @@ function upsertWorkspace(
       x: 5.5 + Math.cos(angle) * 3.5,
       y: Math.sin(angle) * 3,
     },
-    meta,
+    meta: { ...meta, projectId: ws.projectId },
   });
   return true;
 }
@@ -109,8 +139,9 @@ function upsertAgent(store: GraphStore, agent: GatewayAgent): boolean {
       )
     : undefined;
   if (existing) {
-    store.getState().setNodeStatus(existing.id, agentStatus(agent.status));
+    store.getState().setNodeStatus(existing.id, agentStatus(agent));
     store.getState().setNodeTitle(existing.id, agent.title);
+    store.getState().nodes[existing.id]!.meta = agentMeta(agent);
     return false;
   }
   const parentId = parent?.id ?? null;
@@ -124,14 +155,14 @@ function upsertAgent(store: GraphStore, agent: GatewayAgent): boolean {
     parentId,
     origin: "gateway",
     externalId: agent.id,
-    status: agentStatus(agent.status),
+    status: agentStatus(agent),
     position: parent
       ? {
           x: parent.position.x + Math.cos(angle) * (2.5 + siblings.length * 0.4),
           y: parent.position.y - 2.2 + Math.sin(angle) * 1.4,
         }
       : { x: 0, y: -4 },
-    meta: { provider: agent.provider, model: agent.model, cwd: agent.cwd },
+    meta: agentMeta(agent),
   });
   return true;
 }

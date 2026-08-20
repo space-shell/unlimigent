@@ -23,6 +23,8 @@ export interface GraphState {
   nodes: Record<string, GraphNode>;
   edges: Record<string, GraphEdge>;
   focusedNodeId: string | null;
+  /** Nodes whose subtree is collapsed (hidden). */
+  collapsedIds: Set<string>;
   camera: CameraState;
 
   addNode: (init: Parameters<typeof createNode>[0]) => GraphNode;
@@ -32,6 +34,10 @@ export interface GraphState {
   setNodeTitle: (id: string, title: string) => void;
   removeNode: (id: string) => void;
   connect: (from: string, to: string, kind: GraphEdge["kind"]) => GraphEdge | null;
+  toggleCollapsed: (id: string) => void;
+  isDescendantOf: (id: string, ancestorId: string) => boolean;
+  /** True when the node is inside any collapsed subtree (thus hidden). */
+  isHiddenByCollapse: (id: string) => boolean;
 
   focus: (id: string | null) => void;
   setCamera: (camera: Partial<CameraState>) => void;
@@ -46,6 +52,7 @@ export function createGraphStore() {
     nodes: {},
     edges: {},
     focusedNodeId: null,
+    collapsedIds: new Set<string>(),
     camera: { x: 0, y: 0, zoom: ZOOM_DEFAULT, theta: THETA_ISO, phi: PHI_ISO },
 
     addNode: (init) => {
@@ -120,6 +127,35 @@ export function createGraphStore() {
       return edge;
     },
 
+    toggleCollapsed: (id) =>
+      set((state) => {
+        if (!state.nodes[id]) return state;
+        const next = new Set(state.collapsedIds);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return { collapsedIds: next };
+      }),
+
+    isDescendantOf: (id, ancestorId) => {
+      const nodes = get().nodes;
+      let current = nodes[id]?.parentId ?? null;
+      const seen = new Set<string>();
+      while (current !== null && !seen.has(current)) {
+        if (current === ancestorId) return true;
+        seen.add(current);
+        current = nodes[current]?.parentId ?? null;
+      }
+      return false;
+    },
+
+    isHiddenByCollapse: (id) => {
+      const state = get();
+      for (const collapsedId of state.collapsedIds) {
+        if (collapsedId !== id && state.isDescendantOf(id, collapsedId)) return true;
+      }
+      return false;
+    },
+
     focus: (id) => {
       const state = get();
       if (id !== null && !state.nodes[id]) return;
@@ -134,17 +170,20 @@ export function createGraphStore() {
         version: 1,
         nodes: { ...s.nodes },
         edges: { ...s.edges },
-      };
+        collapsedIds: [...s.collapsedIds],
+      } as GraphSnapshot;
     },
 
     restore: (snap) =>
       set({
         nodes: { ...snap.nodes },
         edges: { ...snap.edges },
+        collapsedIds: new Set((snap as { collapsedIds?: string[] }).collapsedIds ?? []),
         focusedNodeId: null,
       }),
 
-    clear: () => set({ nodes: {}, edges: {}, focusedNodeId: null }),
+    clear: () =>
+      set({ nodes: {}, edges: {}, collapsedIds: new Set(), focusedNodeId: null }),
   }));
 }
 

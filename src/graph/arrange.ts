@@ -26,6 +26,9 @@ export interface ArrangeResult {
 
 const snap = (v: number) => Math.round(v / GRID_WORLD) * GRID_WORLD;
 
+/** Snap a single coordinate to the grid (used by manual node drags too). */
+export const snapToGrid = snap;
+
 /** Auto-arrange the whole graph with elk layered layout, snapped to the
  * grid so nodes sit on the plus-mark intersections. Runs automatically when
  * a gateway snapshot adds nodes; manually placed (pinned) nodes keep their
