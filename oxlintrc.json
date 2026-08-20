@@ -1,0 +1,4 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxlint/main/oxlintrc.json",
+  "rules": {}
+}

@@ -1,0 +1,32 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family:
+    ui-monospace, "JetBrains Mono", "IBM Plex Mono", "Cascadia Mono", Menlo,
+    monospace;
+  -webkit-text-size-adjust: 100%;
+}
+
+.boot {
+  display: grid;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.boot-title {
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.boot-sub {
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+}
