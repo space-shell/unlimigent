@@ -30,3 +30,21 @@ body {
   font-size: 0.7rem;
   color: var(--ink-faint);
 }
+
+.error-detail {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.7rem;
+  max-width: 32rem;
+  text-align: left;
+}
+
+.diag {
+  position: fixed;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  font-size: 0.6rem;
+  color: var(--ink-faint);
+  pointer-events: none;
+  z-index: 10;
+}
