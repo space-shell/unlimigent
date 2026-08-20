@@ -49,11 +49,15 @@ only where state demands attention. Playful through restraint, not decoration.
 
 - Typography: monospace everywhere (`ui-monospace`, JetBrains Mono / IBM Plex Mono
   fallbacks). Text is interface, not ornament.
-- Chrome: structure from box-drawing and geometric glyphs (─ │ ┌ ┐ └ ┘ ├ ┤ ◇ ◉ ▲)
-  before CSS decoration. Flat. No gradients; no shadows-as-depth except focus.
+- Chrome: structure from typography, spacing, and hairline rules. Box-drawing /
+  geometric glyphs (`─ ◇ ◉ ▲`) only as micro-accents — list markers, dividers,
+  relation hints. Never decorative ASCII borders or banner art. Flat. No
+  gradients; no shadows-as-depth except focus.
 - Color: token palette below. Neutrals carry the page; accents appear only on state
   (running, attention, error, success, archive). Muted base, popping on demand.
 - Whitespace: generous. Muji: functional, unbranded, calm.
+- On-device check 2026-08-20: palette and monospace typography confirmed good;
+  literal ASCII art reads as noise — excluded.
 
 Design tokens (single source of truth; no raw hex outside the tokens module):
 
