@@ -81,7 +81,9 @@ function mapAgent(a: DaemonAgent): GatewayAgent | null {
 }
 
 function isWorkspaceArchived(w: DaemonWorkspace): boolean {
-  return w.status === "done" || w.status === "archived" || w.archivingAt !== null;
+  // "done" workspaces stay visible (the official client shows them);
+  // only genuinely archived ones hide
+  return w.status === "archived" || w.archivingAt !== null;
 }
 
 function mapWorkspace(w: DaemonWorkspace): GatewayWorkspace | null {

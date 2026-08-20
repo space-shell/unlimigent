@@ -68,7 +68,11 @@ export class CameraController {
         break;
       case "camera.teleport":
         this.cancelTween();
-        state.setCamera({ x: intent.target.x, y: intent.target.y });
+        state.setCamera({
+          x: intent.target.x,
+          y: intent.target.y,
+          ...(intent.zoom !== undefined ? { zoom: intent.zoom } : {}),
+        });
         break;
       case "camera.focus":
         if (intent.id === undefined) {
@@ -96,12 +100,15 @@ export class CameraController {
     this.tweenTo({ x: node.position.x, y: node.position.y });
   }
 
-  private tweenTo(target: { x: number; y: number }): void {
+  private tweenTo(target: { x: number; y: number; zoom?: number }): void {
     this.cancelTween();
     const start = { ...this.store.getState().camera };
     const dx = target.x - start.x;
     const dy = target.y - start.y;
-    if (dx === 0 && dy === 0) return;
+    const targetZoom = target.zoom ?? start.zoom;
+    const zoomFrom = Math.log(start.zoom);
+    const zoomTo = Math.log(targetZoom);
+    if (dx === 0 && dy === 0 && targetZoom === start.zoom) return;
     const t0 = this.now();
     const step = (now: number) => {
       const t = Math.min(1, (now - t0) / TWEEN_MS);
@@ -109,6 +116,7 @@ export class CameraController {
       this.store.getState().setCamera({
         x: start.x + dx * e,
         y: start.y + dy * e,
+        zoom: Math.exp(zoomFrom + (zoomTo - zoomFrom) * e),
       });
       this.tweenHandle = t < 1 ? this.raf(step) : null;
     };

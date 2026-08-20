@@ -16,6 +16,8 @@ function agentStatus(agent: GatewayAgent): NodeStatus {
 
 function workspaceStatus(ws: GatewayWorkspace): NodeStatus {
   if (ws.pullRequest) return "attention";
+  if (ws.status === "done") return "done";
+  if (ws.status === "running") return "running";
   return "idle";
 }
 
@@ -201,8 +203,8 @@ export function projectGatewayEvent(store: GraphStore, event: GatewayEvent): voi
       applySnapshot(store, event.snapshot);
       break;
     case "workspace-updated": {
-      // a workspace that archived between polls arrives as done/archived → remove
-      if (event.workspace.status === "done" || event.workspace.status === "archived") {
+      // only genuinely archived workspaces are removed on update
+      if (event.workspace.status === "archived") {
         const existing = findByExternalId(store, event.workspace.id);
         if (existing) {
           store.getState().removeNode(existing.id);

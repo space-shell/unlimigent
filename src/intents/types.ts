@@ -10,7 +10,7 @@ export type Intent =
   | { type: "node.context"; source: IntentSource; id?: string }
   | { type: "camera.pan"; source: IntentSource; delta: Vec2 }
   | { type: "camera.zoom"; source: IntentSource; delta: number; origin?: Vec2 }
-  | { type: "camera.teleport"; source: IntentSource; target: Vec2 }
+  | { type: "camera.teleport"; source: IntentSource; target: Vec2; zoom?: number }
   | { type: "camera.focus"; source: IntentSource; id?: string }
   | { type: "ui.menu"; source: IntentSource }
   | { type: "ui.back"; source: IntentSource }

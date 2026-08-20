@@ -4,8 +4,9 @@ import { Line, Text } from "@react-three/drei";
 import { useStore } from "zustand";
 import type { Runtime } from "../app/runtime";
 import type { GraphNode } from "../graph/types";
-import { autoArrange, snapToGrid } from "../graph/arrange";
-import { screenDeltaToWorld, worldToScreen, type Viewport } from "./cameraMath";
+import { autoArrange } from "../graph/arrange";
+import { ZOOM_MAX } from "../graph/store";
+import { worldToScreen, type Viewport } from "./cameraMath";
 import { tokens, type Token } from "../tokens";
 
 const FONT = "/unlimigent/fonts/JetBrainsMono-Regular.ttf";
@@ -115,22 +116,23 @@ function descendantCount(store: Runtime["store"], id: string): number {
   return n;
 }
 
-/** Clockwise rounded-rect outline, closed, starting/ending on the top edge. */
+/** Clockwise rounded-rect outline, closed, starting on the top edge. */
 function outlinePoints(w: number, h: number, r: number, seg = 5): Array<[number, number]> {
-  const ccw: Array<[number, number]> = [];
-  const cornerTo = (cx: number, cy: number, a0: number, a1: number) => {
+  const pts: Array<[number, number]> = [];
+  // clockwise traversal: top edge → TR corner → right edge → BR corner →
+  // bottom edge → BL corner → left edge → TL corner → back to top
+  const arc = (cx: number, cy: number, a0: number, a1: number) => {
     for (let i = 0; i <= seg; i++) {
       const a = a0 + ((a1 - a0) * i) / seg;
-      ccw.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+      pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
     }
   };
-  cornerTo(w / 2 - r, h / 2 - r, 0, Math.PI / 2);
-  cornerTo(-w / 2 + r, h / 2 - r, Math.PI / 2, Math.PI);
-  cornerTo(-w / 2 + r, -h / 2 + r, Math.PI, (3 * Math.PI) / 2);
-  cornerTo(w / 2 - r, -h / 2 + r, (3 * Math.PI) / 2, 2 * Math.PI);
-  // start mid-top edge, run clockwise, close the loop
-  const clockwise = [...ccw].reverse();
-  return [[-w / 2 + r, h / 2], ...clockwise, [-w / 2 + r, h / 2]];
+  arc(w / 2 - r, h / 2 - r, Math.PI / 2, 0); // TR: top → right
+  arc(w / 2 - r, -h / 2 + r, 0, -Math.PI / 2); // BR: right → bottom
+  arc(-w / 2 + r, -h / 2 + r, -Math.PI / 2, -Math.PI); // BL: bottom → left
+  arc(-w / 2 + r, h / 2 - r, Math.PI, Math.PI / 2); // TL: left → top
+  pts.push([pts[0]![0], pts[0]![1]]); // close the loop
+  return pts;
 }
 
 /** Partial outline up to fraction t of total perimeter length. */
@@ -186,11 +188,11 @@ function GroundPlate({
 
   const holdRef = useRef<HoldState>({ active: false, startAt: 0, done: false });
   const [fill, setFill] = useState(0);
+  const lastTapRef = useRef(0);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
     startY: number;
-    origin: { x: number; y: number };
     moved: boolean;
   } | null>(null);
 
@@ -221,15 +223,6 @@ function GroundPlate({
   const endDrag = () => {
     const drag = dragRef.current;
     dragRef.current = null;
-    if (drag?.moved) {
-      const p = runtime.store.getState().nodes[node.id]?.position;
-      if (p) {
-        runtime.store.getState().moveNode(node.id, {
-          x: snapToGrid(p.x),
-          y: snapToGrid(p.y),
-        });
-      }
-    }
     return drag;
   };
 
@@ -242,7 +235,6 @@ function GroundPlate({
       pointerId: e.pointerId,
       startX: e.nativeEvent.clientX,
       startY: e.nativeEvent.clientY,
-      origin: { ...node.position },
       moved: false,
     };
   };
@@ -251,21 +243,10 @@ function GroundPlate({
     const drag = dragRef.current;
     if (!drag || e.pointerId !== drag.pointerId) return;
     e.stopPropagation();
-    const dxPx = e.nativeEvent.clientX - drag.startX;
-    const dyPx = e.nativeEvent.clientY - drag.startY;
-    if (!drag.moved && Math.hypot(dxPx, dyPx) > DRAG_SLOP_PX) {
+    // drags on a node are inert — the gesture is reserved for child creation
+    if (!drag.moved && Math.hypot(e.nativeEvent.clientX - drag.startX, e.nativeEvent.clientY - drag.startY) > DRAG_SLOP_PX) {
       drag.moved = true;
       cancelHold();
-      runtime.store.getState().pinNode(node.id, true);
-    }
-    if (drag.moved) {
-      const state = runtime.store.getState();
-      const d = screenDeltaToWorld(dxPx, dyPx, state.camera);
-      // live grid snap while dragging
-      state.moveNode(node.id, {
-        x: snapToGrid(drag.origin.x + d.x),
-        y: snapToGrid(drag.origin.y + d.y),
-      });
     }
   };
 
@@ -277,14 +258,33 @@ function GroundPlate({
     cancelHold();
     const drag = endDrag();
     if (drag && !drag.moved && !completedHold && elapsed < TAP_MS) {
-      runtime.bus.dispatch({ type: "node.activate", source: "touch", id: node.id });
+      const now = performance.now();
+      if (now - lastTapRef.current < 300) {
+        // double tap: zoom until the plate fills the screen (bounded)
+        lastTapRef.current = 0;
+        const minDim = Math.min(
+          globalThis.innerWidth ?? 800,
+          globalThis.innerHeight ?? 600,
+        );
+        const fill = (0.85 * minDim) / PLATE_W;
+        const zoom = Math.min(ZOOM_MAX, Math.round((fill * fill) / REF_ZOOM));
+        runtime.bus.dispatch({
+          type: "camera.teleport",
+          source: "touch",
+          target: { x: node.position.x, y: node.position.y },
+          zoom,
+        });
+      } else {
+        lastTapRef.current = now;
+        runtime.bus.dispatch({ type: "node.activate", source: "touch", id: node.id });
+      }
     }
     setFill(0);
   };
 
   const pad = 0.28;
 
-  // ---- dot LOD: bare status dot + invisible hit disc ----
+  // ---- dot LOD: bare node dot + invisible hit disc ----
   if (lod === "dot") {
     return (
       <group
@@ -298,7 +298,7 @@ function GroundPlate({
       >
         <mesh>
           <circleGeometry args={[0.22, 16]} />
-          <meshBasicMaterial color={accent} />
+          <meshBasicMaterial color={tokens.ink} />
         </mesh>
         <mesh>
           <circleGeometry args={[0.9, 8]} />
@@ -361,11 +361,6 @@ function GroundPlate({
         <planeGeometry args={[PLATE_W, h]} />
         <meshBasicMaterial color={tokens.paper} />
       </mesh>
-      {/* status dot */}
-      <mesh position={[PLATE_W / 2 - pad, h / 2 - 0.3, 0.002]}>
-        <circleGeometry args={[0.11, 16]} />
-        <meshBasicMaterial color={accent} />
-      </mesh>
       {/* hold-to-collapse: offset outline filling clockwise */}
       {fill > 0 && fill < 1 && (
         <Line points={partialOutline(outline, fill)} color={accent} lineWidth={3} />
@@ -386,7 +381,7 @@ function GroundPlate({
         <Text
           font={FONT}
           fontSize={spec.subFont}
-          color={tokens.inkFaint}
+          color={tokens.ink}
           anchorX="left"
           anchorY="top"
           position={[-PLATE_W / 2 + pad, h / 2 - 0.62, 0.002]}

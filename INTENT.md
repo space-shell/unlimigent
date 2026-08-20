@@ -43,7 +43,9 @@ server (daemon host)
                                workspace as sibling sessions
 ```
 
-- Workspace archive → node is removed (archived entities are never displayed).
+- Workspace archive → node is removed. Daemon "done" workspaces stay visible
+  (official client parity) shown with a done status; only genuinely archived
+  entities (archivingAt / status "archived") are hidden.
 - Project with no live workspaces → project node is removed.
 - Post-MVP session kinds (tools, files) attach under their workspace.
 

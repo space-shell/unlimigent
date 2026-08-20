@@ -131,12 +131,23 @@ describe("gateway projection", () => {
     expect(agent?.meta.permissions).toBe("2");
   });
 
+  it("keeps done workspaces visible with done status", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    projectGatewayEvent(store, {
+      kind: "workspace-updated",
+      workspace: { ...snapshot().workspaces[0]!, status: "done" },
+    });
+    const ws = Object.values(store.getState().nodes).find((n) => n.externalId === "wks_a");
+    expect(ws).toBeDefined();
+    expect(ws?.status).toBe("done");
+  });
+
   it("removes nodes for entities that archived between polls", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     expect(Object.values(store.getState().nodes).some((n) => n.externalId === "wks_b")).toBe(true);
     projectGatewayEvent(store, {
       kind: "workspace-updated",
-      workspace: { ...snapshot().workspaces[1]!, status: "done" },
+      workspace: { ...snapshot().workspaces[1]!, status: "archived" },
     });
     expect(Object.values(store.getState().nodes).some((n) => n.externalId === "wks_b")).toBe(false);
   });
