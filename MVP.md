@@ -14,7 +14,7 @@ that journey on the physical device. Everything else is post-MVP.
 |---|---|---|---|
 | 0 | — | Foundations & spikes | ✓ complete 2026-08-20 |
 | 1 | `stage1` | Graph core & input model | ✓ complete 2026-08-20 (flag defaults on with first UI surface, Stage 2) |
-| 2 | `stage2` | Canvas & touch navigation | ☐ not started |
+| 2 | `stage2` | Canvas & touch navigation | ◐ in progress — rendering verified on pad 2026-08-20 (38-node mock: 51 fps static + pan, dev build); awaiting hands-on gesture check + prod-build fps on Pages |
 | 3 | `stage3` | Gamepad & game UX | ☐ not started |
 | 4 | `stage4` | Live Paseo mirror | ☐ not started |
 | 5 | `stage5` | Voice & hands-free | ⏸ deferred 2026-08-20 (user call; revisit after Stage 4) |
