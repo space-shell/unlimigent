@@ -9,16 +9,23 @@ export interface Viewport {
   height: number;
 }
 
-/** World unit -> screen px. Screen y grows down, world y grows up. */
+/** Screen x grows right, screen y grows down; world x right, world y up.
+ * The view is rotated by cam.theta (iso = π/4) before the y-flip. */
+
 export function worldToScreen(
   wx: number,
   wy: number,
   cam: CameraState,
   vp: Viewport,
 ): { x: number; y: number } {
+  const th = cam.theta ?? 0;
+  const c = Math.cos(th);
+  const s = Math.sin(th);
+  const rx = wx - cam.x;
+  const ry = wy - cam.y;
   return {
-    x: (wx - cam.x) * cam.zoom + vp.width / 2,
-    y: vp.height / 2 - (wy - cam.y) * cam.zoom,
+    x: vp.width / 2 + (rx * c - ry * s) * cam.zoom,
+    y: vp.height / 2 - (rx * s + ry * c) * cam.zoom,
   };
 }
 
@@ -28,9 +35,31 @@ export function screenToWorld(
   cam: CameraState,
   vp: Viewport,
 ): { x: number; y: number } {
+  const th = cam.theta ?? 0;
+  const c = Math.cos(th);
+  const s = Math.sin(th);
+  const dx = (sx - vp.width / 2) / cam.zoom;
+  const dy = (vp.height / 2 - sy) / cam.zoom;
   return {
-    x: (sx - vp.width / 2) / cam.zoom + cam.x,
-    y: (vp.height / 2 - sy) / cam.zoom + cam.y,
+    x: cam.x + dx * c + dy * s,
+    y: cam.y - dx * s + dy * c,
+  };
+}
+
+/** Convert a screen-space pixel delta to a world-space delta. */
+export function screenDeltaToWorld(
+  dxPx: number,
+  dyPx: number,
+  cam: CameraState,
+): { x: number; y: number } {
+  const th = cam.theta ?? 0;
+  const c = Math.cos(th);
+  const s = Math.sin(th);
+  const dx = dxPx / cam.zoom;
+  const dy = -dyPx / cam.zoom;
+  return {
+    x: dx * c + dy * s,
+    y: -dx * s + dy * c,
   };
 }
 
@@ -40,11 +69,8 @@ export function panBy(
   dxPx: number,
   dyPx: number,
 ): CameraState {
-  return {
-    ...cam,
-    x: cam.x - dxPx / cam.zoom,
-    y: cam.y + dyPx / cam.zoom,
-  };
+  const d = screenDeltaToWorld(dxPx, dyPx, cam);
+  return { ...cam, x: cam.x - d.x, y: cam.y - d.y };
 }
 
 /** Zoom by a multiplicative factor, keeping the world point under
@@ -59,10 +85,16 @@ export function zoomAt(
   if (zoom === cam.zoom) return cam;
   if (!originPx) return { ...cam, zoom };
   const w = screenToWorld(originPx.x, originPx.y, cam, vp);
+  const th = cam.theta ?? 0;
+  const c = Math.cos(th);
+  const s = Math.sin(th);
+  const dx = (originPx.x - vp.width / 2) / zoom;
+  const dy = (vp.height / 2 - originPx.y) / zoom;
   return {
     zoom,
-    x: w.x - (originPx.x - vp.width / 2) / zoom,
-    y: w.y - (vp.height / 2 - originPx.y) / zoom,
+    theta: cam.theta,
+    x: w.x - (dx * c + dy * s),
+    y: w.y - (-dx * s + dy * c),
   };
 }
 
@@ -73,22 +105,14 @@ export interface ViewRect {
   bottom: number;
 }
 
+/** Axis-aligned viewport bounds in *rotated screen space* — compare against
+ * worldToScreen output, not raw world coords. */
 export function viewRect(cam: CameraState, vp: Viewport): ViewRect {
-  const hw = vp.width / 2 / cam.zoom;
-  const hh = vp.height / 2 / cam.zoom;
-  return { left: cam.x - hw, right: cam.x + hw, top: cam.y + hh, bottom: cam.y - hh };
+  const hw = vp.width / 2;
+  const hh = vp.height / 2;
+  return { left: -hw, right: hw, top: -hh, bottom: hh };
 }
 
-/** Is a world-space AABB visible (with margin in world units)? */
-export function rectVisible(rect: ViewRect, center: { x: number; y: number }, halfW: number, halfH: number, margin: number): boolean {
-  return (
-    center.x + halfW + margin >= rect.left &&
-    center.x - halfW - margin <= rect.right &&
-    center.y + halfH + margin >= rect.bottom &&
-    center.y - halfH - margin <= rect.top
-  );
-}
-
-/** Node card footprint in world units (must match arrange.ts elk sizes). */
+/** Node card footprint in world units (keep in sync with ELK_NODE_W/H). */
 export const NODE_HALF_W = 2;
 export const NODE_HALF_H = 0.75;

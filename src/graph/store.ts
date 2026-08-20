@@ -6,11 +6,14 @@ export interface CameraState {
   x: number;
   y: number;
   zoom: number;
+  /** View rotation in radians. π/4 = isometric orientation. */
+  theta?: number;
 }
 
 export const ZOOM_MIN = 4;
 export const ZOOM_MAX = 256;
 export const ZOOM_DEFAULT = 48;
+export const THETA_ISO = Math.PI / 4;
 
 export interface GraphState {
   nodes: Record<string, GraphNode>;
@@ -38,7 +41,7 @@ export function createGraphStore() {
     nodes: {},
     edges: {},
     focusedNodeId: null,
-    camera: { x: 0, y: 0, zoom: ZOOM_DEFAULT },
+    camera: { x: 0, y: 0, zoom: ZOOM_DEFAULT, theta: THETA_ISO },
 
     addNode: (init) => {
       const node = createNode(init);

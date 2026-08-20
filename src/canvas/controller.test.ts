@@ -16,6 +16,7 @@ const VP = { width: 2000, height: 1200 };
 
 function rig() {
   const store = createGraphStore();
+  store.getState().setCamera({ theta: 0 });
   const bus = new IntentBus();
   const frames: Array<() => void> = [];
   let clockMs = 0;
@@ -69,9 +70,21 @@ describe("camera math", () => {
     expect(zoomAt({ x: 0, y: 0, zoom: 8 }, 0.01, null, VP).zoom).toBe(ZOOM_MIN);
   });
 
-  it("viewRect matches camera center and zoom", () => {
+  it("viewRect returns rotated-screen viewport bounds", () => {
     const rect = viewRect({ x: 0, y: 0, zoom: 48 }, VP);
-    expect(rect.right - rect.left).toBeCloseTo(VP.width / 48);
+    expect(rect.right - rect.left).toBe(VP.width);
+  });
+
+  it("iso rotation round-trips and pans along the rotated axis", () => {
+    const cam = { x: 0, y: 0, zoom: 48, theta: Math.PI / 4 };
+    const w = screenToWorld(300, 200, cam, VP);
+    const s = worldToScreen(w.x, w.y, cam, VP);
+    expect(s.x).toBeCloseTo(300);
+    expect(s.y).toBeCloseTo(200);
+    // dragging right moves the camera left-down along the rotated axis
+    const p = panBy(cam, 48, 0);
+    expect(p.x).toBeCloseTo(-Math.SQRT1_2);
+    expect(p.y).toBeCloseTo(Math.SQRT1_2);
   });
 });
 
