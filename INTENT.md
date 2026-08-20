@@ -58,7 +58,11 @@ only where state demands attention. Playful through restraint, not decoration.
 - Whitespace: generous. Muji: functional, unbranded, calm.
 - Canvas orientation: isometric — the world plane is viewed rotated 45°; the
   plus-mark grid, manhattan (90°-bend) edges, and node cards all align to the
-  rotated axes. On-device check 2026-08-20: verified readable and native-feeling.
+  rotated axes. Nodes render as flat ground plates (90° about the plane
+  normal) with tiered LOD: plate and text scale separately across
+  dot/compact/full/detail tiers so plates stay screen-legible at every zoom.
+  Hold a plate ~600 ms to collapse its subtree (clockwise border fill).
+  On-device check 2026-08-20: verified readable and native-feeling.
 - On-device check 2026-08-20: palette and monospace typography confirmed good;
   literal ASCII art reads as noise — excluded.
 
