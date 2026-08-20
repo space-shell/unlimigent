@@ -48,11 +48,14 @@ first; they are the source of truth for what this project is and what is in scop
 
 ## Commands
 
-Populated in Stage 0.
+All inside the devshell: `nix develop` first (or prefix with `nix develop -c`).
 
 | Task | Command |
 |---|---|
-| Dev server | — |
-| Lint / format | — |
-| Typecheck | — |
-| Tests | — |
+| Dev server | `npm run dev` (LAN/adb-reverse ready via `--host`) |
+| Lint | `npm run lint` (oxlint) |
+| Format | `npm run format` (prettier) |
+| Typecheck | `npm run typecheck` (tsc --noEmit) |
+| Tests | `npm run test` (vitest) |
+| Build | `npm run build` (vite, PWA SW generated) |
+| Spike 0a probes | `PASEO_URL=ws://host:6767/ws npm run spike:0a` |

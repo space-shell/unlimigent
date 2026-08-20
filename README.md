@@ -31,8 +31,18 @@ Ethos, design language, and fixed decisions: [INTENT.md](INTENT.md).
 
 ## Development
 
-The flake.nix devshell (nodejs 22+, Vite + React + TS + R3F) lands with Stage 0.
-Until then this repo is docs plus a placeholder site.
+NixOS flake devshell (nodejs 22); all tooling runs inside it.
+
+```bash
+nix develop          # enter devshell
+npm install          # first time only
+npm run dev          # vite dev server, --host (LAN / adb reverse ready)
+```
+
+Checks: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run build`.
+Device testing: `adb reverse tcp:5173 tcp:5173` (app) and
+`adb reverse tcp:6767 tcp:6767` (daemon), then open `http://localhost:5173` on
+the pad.
 
 ## Deployment
 
