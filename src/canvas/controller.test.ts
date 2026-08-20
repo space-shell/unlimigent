@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createGraphStore } from "../graph/store";
+import { createGraphStore, PHI_ISO } from "../graph/store";
 import { IntentBus } from "../intents/bus";
 import { CameraController } from "./controller";
 import {
@@ -48,10 +48,10 @@ describe("camera math", () => {
     expect(s.y).toBeCloseTo(200);
   });
 
-  it("pan shifts the camera opposite to the drag", () => {
-    const cam = panBy({ x: 0, y: 0, zoom: 48 }, 96, -48);
-    expect(cam.x).toBeCloseTo(-2);
-    expect(cam.y).toBeCloseTo(-1);
+  it("pan shifts the camera opposite to the drag (iso elevation)", () => {
+    const cam = panBy({ x: 0, y: 0, zoom: 48, phi: PHI_ISO }, 96, -48);
+    expect(cam.x).toBeCloseTo(1 / Math.sin(PHI_ISO));
+    expect(cam.y).toBeCloseTo(-2);
   });
 
   it("zoomAt pins the world point under the origin", () => {
@@ -76,15 +76,15 @@ describe("camera math", () => {
   });
 
   it("iso rotation round-trips and pans along the rotated axis", () => {
-    const cam = { x: 0, y: 0, zoom: 48, theta: Math.PI / 4 };
+    const cam = { x: 0, y: 0, zoom: 48, theta: Math.PI / 4, phi: PHI_ISO };
     const w = screenToWorld(300, 200, cam, VP);
     const s = worldToScreen(w.x, w.y, cam, VP);
     expect(s.x).toBeCloseTo(300);
     expect(s.y).toBeCloseTo(200);
-    // dragging right moves the camera left-down along the rotated axis
+    // dragging right moves the camera along the rotated ground axis
     const p = panBy(cam, 48, 0);
-    expect(p.x).toBeCloseTo(-Math.SQRT1_2);
-    expect(p.y).toBeCloseTo(Math.SQRT1_2);
+    expect(p.x).toBeCloseTo(Math.SQRT1_2);
+    expect(p.y).toBeCloseTo(-Math.SQRT1_2);
   });
 });
 
@@ -92,7 +92,8 @@ describe("camera controller", () => {
   it("applies pan intents to the store camera", () => {
     const { store, bus } = rig();
     bus.dispatch({ type: "camera.pan", source: "touch", delta: { x: 48, y: 0 } });
-    expect(store.getState().camera.x).toBeCloseTo(-1);
+    expect(store.getState().camera.x).toBeCloseTo(0);
+    expect(store.getState().camera.y).toBeCloseTo(-1);
   });
 
   it("applies zoom intents with origin anchoring", () => {
