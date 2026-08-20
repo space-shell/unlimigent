@@ -2,8 +2,9 @@ import { useStore } from "zustand";
 import type { Runtime } from "../app/runtime";
 import { worldToScreen, type Viewport } from "./cameraMath";
 
-/** SVG hairline edges in screen space. Lives outside WebGL by design (2D MVP);
- * an in-scene line implementation swaps in with the XR TextSurface work. */
+/** Manhattan edges: node-center to node-center with a single 90° bend in
+ * world space (renders as a clean elbow along the iso axes). SVG in screen
+ * space for the 2D MVP; swaps to in-scene lines with the XR surface work. */
 export function EdgeOverlay({
   runtime,
   viewport,
@@ -15,14 +16,18 @@ export function EdgeOverlay({
   const edges = useStore(runtime.store, (s) => s.edges);
   const camera = useStore(runtime.store, (s) => s.camera);
 
-  const lines: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> = [];
+  const paths: Array<{ id: string; d: string }> = [];
   for (const edge of Object.values(edges)) {
     const from = nodes[edge.from];
     const to = nodes[edge.to];
     if (!from || !to) continue;
-    const a = worldToScreen(from.position.x, from.position.y, camera, viewport);
-    const b = worldToScreen(to.position.x, to.position.y, camera, viewport);
-    lines.push({ id: edge.id, x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+    const midX = (from.position.x + to.position.x) / 2;
+    const p1 = worldToScreen(from.position.x, from.position.y, camera, viewport);
+    const p2 = worldToScreen(midX, from.position.y, camera, viewport);
+    const p3 = worldToScreen(midX, to.position.y, camera, viewport);
+    const p4 = worldToScreen(to.position.x, to.position.y, camera, viewport);
+    const d = `M${p1.x.toFixed(1)} ${p1.y.toFixed(1)}L${p2.x.toFixed(1)} ${p2.y.toFixed(1)}L${p3.x.toFixed(1)} ${p3.y.toFixed(1)}L${p4.x.toFixed(1)} ${p4.y.toFixed(1)}`;
+    paths.push({ id: edge.id, d });
   }
 
   return (
@@ -33,8 +38,8 @@ export function EdgeOverlay({
       viewBox={`0 0 ${viewport.width} ${viewport.height}`}
       aria-hidden="true"
     >
-      {lines.map((l) => (
-        <line key={l.id} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
+      {paths.map((p) => (
+        <path key={p.id} d={p.d} fill="none" />
       ))}
     </svg>
   );

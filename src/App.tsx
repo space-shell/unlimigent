@@ -7,6 +7,8 @@ import { readFlags } from "./flags";
 import { createRuntime, type Runtime } from "./app/runtime";
 import { RuntimeProvider } from "./app/RuntimeProvider";
 import { largeScenario, MockPaseoGateway } from "./gateway/mock";
+import { FallbackGateway, RealPaseoGateway } from "./gateway/real";
+import { GridLayer } from "./canvas/GridLayer";
 import { CameraRig } from "./canvas/CameraRig";
 import { NodeLayer } from "./canvas/NodeLayer";
 import { EdgeOverlay } from "./canvas/EdgeOverlay";
@@ -31,11 +33,15 @@ function GraphApp() {
   const viewport = useViewport();
   const runtimeRef = useRef<Runtime | null>(null);
   if (runtimeRef.current === null) {
-    // ?large seeds a 24-node scenario for the device perf bar
-    const large = new URLSearchParams(globalThis.location.search).has("large");
-    runtimeRef.current = createRuntime({
-      gateway: new MockPaseoGateway(large ? { scenario: largeScenario() } : {}),
-    });
+    const params = new URLSearchParams(globalThis.location.search);
+    // ?large = perf scenario, ?mock = mock daemon; default = live read-only
+    // daemon with mock fallback (Pages origin cannot reach ws://).
+    const gateway = params.has("large")
+      ? new MockPaseoGateway({ scenario: largeScenario() })
+      : params.has("mock")
+        ? new MockPaseoGateway()
+        : new FallbackGateway(new RealPaseoGateway(), new MockPaseoGateway());
+    runtimeRef.current = createRuntime({ gateway });
   }
   const runtime = runtimeRef.current;
 
@@ -49,9 +55,10 @@ function GraphApp() {
           gl={{ antialias: true }}
         >
           <color attach="background" args={[tokens.paper]} />
-          <CameraRig runtime={runtime} />
+          <CameraRig />
           <NodeLayer runtime={runtime} viewport={viewport} />
         </Canvas>
+        <GridLayer runtime={runtime} viewport={viewport} />
         <EdgeOverlay runtime={runtime} viewport={viewport} />
         <GestureLayer runtime={runtime} />
         <InfoBar runtime={runtime} />
