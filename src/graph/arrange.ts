@@ -1,13 +1,17 @@
-import ELK from "elkjs";
+// bundled build avoids elkjs' node-only "web-worker" import in browsers
+import ELK from "elkjs/lib/elk.bundled.js";
 import type { GraphStore } from "./store";
 
 const elk = new ELK();
 
+/** Grid cell in world units — nodes snap to multiples of this. */
+export const GRID_WORLD = 2;
+
 const LAYOUT_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "RIGHT",
-  "elk.spacing.nodeNode": "0.6",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "1.6",
+  "elk.spacing.nodeNode": String(GRID_WORLD * 1.5),
+  "elk.layered.spacing.nodeNodeBetweenLayers": String(GRID_WORLD * 2),
   "elk.nodeSize.minimum": "(4, 1.5)",
 };
 
@@ -20,9 +24,12 @@ export interface ArrangeResult {
   moved: number;
 }
 
-/** Auto-arrange the whole graph with elk layered layout. A tool the user
- * invokes — never an automatic policy. Positions are written back to the
- * store; manual positions are overwritten. */
+const snap = (v: number) => Math.round(v / GRID_WORLD) * GRID_WORLD;
+
+/** Auto-arrange the whole graph with elk layered layout, snapped to the
+ * grid so nodes sit on the plus-mark intersections. Runs automatically when
+ * a gateway snapshot adds nodes; manually placed (pinned) nodes keep their
+ * position. */
 export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
   const state = store.getState();
   const nodes = Object.values(state.nodes);
@@ -45,10 +52,11 @@ export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
 
   let moved = 0;
   for (const child of layout.children ?? []) {
-    const x = child.x ?? 0;
-    const y = child.y ?? 0;
     const node = store.getState().nodes[child.id];
-    if (node && (node.position.x !== x || node.position.y !== y)) {
+    if (!node || node.pinned) continue;
+    const x = snap(child.x ?? 0);
+    const y = snap(child.y ?? 0);
+    if (node.position.x !== x || node.position.y !== y) {
       store.getState().moveNode(child.id, { x, y });
       moved += 1;
     }

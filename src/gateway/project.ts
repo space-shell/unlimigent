@@ -1,4 +1,5 @@
 import type { GraphStore } from "../graph/store";
+import { autoArrange } from "../graph/arrange";
 import type { NodeStatus } from "../graph/types";
 import type { GatewayAgent, GatewayEvent, GatewaySnapshot, GatewayWorkspace } from "./types";
 
@@ -20,7 +21,7 @@ function upsertWorkspace(
   store: GraphStore,
   serverId: string,
   ws: GatewayWorkspace,
-): void {
+): boolean {
   const state = store.getState();
   const existing = Object.values(state.nodes).find(
     (n) => n.origin === "gateway" && n.externalId === ws.id,
@@ -52,7 +53,7 @@ function upsertWorkspace(
     store.getState().setNodeTitle(existing.id, ws.title);
     store.getState().setNodeStatus(existing.id, workspaceStatus(ws));
     store.getState().nodes[existing.id]!.meta = meta;
-    return;
+    return false;
   }
 
   if (anchor) {
@@ -73,7 +74,7 @@ function upsertWorkspace(
       },
       meta,
     });
-    return;
+    return true;
   }
 
   const roots = Object.values(state.nodes).filter(
@@ -94,9 +95,10 @@ function upsertWorkspace(
     },
     meta,
   });
+  return true;
 }
 
-function upsertAgent(store: GraphStore, agent: GatewayAgent): void {
+function upsertAgent(store: GraphStore, agent: GatewayAgent): boolean {
   const state = store.getState();
   const existing = Object.values(state.nodes).find(
     (n) => n.origin === "gateway" && n.externalId === agent.id,
@@ -109,7 +111,7 @@ function upsertAgent(store: GraphStore, agent: GatewayAgent): void {
   if (existing) {
     store.getState().setNodeStatus(existing.id, agentStatus(agent.status));
     store.getState().setNodeTitle(existing.id, agent.title);
-    return;
+    return false;
   }
   const parentId = parent?.id ?? null;
   const siblings = parentId
@@ -131,6 +133,7 @@ function upsertAgent(store: GraphStore, agent: GatewayAgent): void {
       : { x: 0, y: -4 },
     meta: { provider: agent.provider, model: agent.model, cwd: agent.cwd },
   });
+  return true;
 }
 
 function ensureServer(store: GraphStore, host: string): string {
@@ -154,8 +157,9 @@ function applySnapshot(store: GraphStore, snapshot: GatewaySnapshot): void {
     ...snapshot.workspaces.filter((w) => !isWorktreeKind(w)),
     ...snapshot.workspaces.filter(isWorktreeKind),
   ];
-  for (const ws of ordered) upsertWorkspace(store, serverId, ws);
-  for (const agent of snapshot.agents) upsertAgent(store, agent);
+  let added = 0;
+  for (const ws of ordered) added += upsertWorkspace(store, serverId, ws) ? 1 : 0;
+  for (const agent of snapshot.agents) added += upsertAgent(store, agent) ? 1 : 0;
 
   // a snapshot is authoritative for gateway-origin nodes: prune anything the
   // daemon no longer reports (also clears a previous gateway's leftovers,
@@ -173,6 +177,9 @@ function applySnapshot(store: GraphStore, snapshot: GatewaySnapshot): void {
       !liveIds.has(n.externalId),
   );
   for (const node of stale) store.getState().removeNode(node.id);
+
+  // new nodes → re-flow the graph (pinned nodes keep their positions)
+  if (added > 0) void autoArrange(store);
 }
 
 export function projectGatewayEvent(store: GraphStore, event: GatewayEvent): void {

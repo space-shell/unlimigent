@@ -102,6 +102,7 @@ function NodeCard({
           if (!drag.moved && Math.hypot(dxPx, dyPx) > 6) {
             drag.moved = true;
             clearTimeout(drag.timer);
+            runtime.store.getState().pinNode(node.id, true);
           }
           if (drag.moved) {
             const state = runtime.store.getState();
