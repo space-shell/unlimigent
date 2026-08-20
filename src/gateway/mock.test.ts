@@ -73,6 +73,16 @@ describe("gateway projection", () => {
     expect(nodes.filter((n) => n.kind === "agent")).toHaveLength(1);
   });
 
+  it("nests worktrees under their project workspace", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const nodes = store.getState().nodes;
+    const root = Object.values(nodes).find((n) => n.externalId === "wks_a");
+    const worktree = Object.values(nodes).find((n) => n.externalId === "wks_b");
+    expect(root?.kind).toBe("workspace");
+    expect(worktree?.kind).toBe("worktree");
+    expect(worktree?.parentId).toBe(root?.id);
+  });
+
   it("marks workspaces with open PRs as attention", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     const b = Object.values(store.getState().nodes).find((n) => n.externalId === "wks_b");

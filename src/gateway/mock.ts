@@ -32,6 +32,17 @@ const DEFAULT_SCENARIO: MockScenario = {
         pullRequest: { title: "voice: intent mapping", state: "open" },
         status: "active",
       },
+      {
+        id: "wks_xagent",
+        title: "xagent refactor",
+        projectId: "prj_xagent",
+        projectDisplayName: "xagent",
+        workspaceKind: "local_checkout",
+        branch: "main",
+        remoteUrl: "git@github.com:space-shell/xagent.git",
+        pullRequest: null,
+        status: "active",
+      },
     ],
     agents: [
       {
@@ -76,32 +87,42 @@ export interface MockPaseoGatewayOptions {
 }
 
 /** Deterministic large scenario for the Stage 2 device perf bar
- * (20+ nodes, one agent flapping for live updates). */
-export function largeScenario(count = 24): MockScenario {
+ * (20+ nodes as project-root + worktree pairs, one agent flapping). */
+export function largeScenario(projectCount = 12): MockScenario {
   const workspaces: GatewayWorkspace[] = [];
   const agents: GatewayAgent[] = [];
-  for (let i = 0; i < count; i++) {
-    const wksId = `wks_large_${i}`;
+  for (let p = 0; p < projectCount; p++) {
     workspaces.push({
-      id: wksId,
-      title: `feature ${i}`,
-      projectId: "prj_unlimigent",
-      projectDisplayName: "unlimigent",
-      workspaceKind: i % 3 === 0 ? "worktree" : "local_checkout",
-      branch: `feat-${i}`,
+      id: `wks_large_root_${p}`,
+      title: `feature ${p}`,
+      projectId: `prj_large_${p}`,
+      projectDisplayName: `proj-${p}`,
+      workspaceKind: "local_checkout",
+      branch: "main",
       remoteUrl: "git@github.com:space-shell/unlimigent.git",
-      pullRequest: i % 5 === 0 ? { title: `pr ${i}`, state: "open" } : null,
+      pullRequest: null,
       status: "active",
     });
-    if (i % 2 === 0) {
+    workspaces.push({
+      id: `wks_large_wt_${p}`,
+      title: `feature ${p} · spike`,
+      projectId: `prj_large_${p}`,
+      projectDisplayName: `proj-${p}`,
+      workspaceKind: "worktree",
+      branch: `feat-${p}`,
+      remoteUrl: "git@github.com:space-shell/unlimigent.git",
+      pullRequest: p % 4 === 0 ? { title: `pr ${p}`, state: "open" } : null,
+      status: "active",
+    });
+    if (p % 2 === 0) {
       agents.push({
-        id: `agt_large_${i}`,
-        provider: i % 4 === 0 ? "opencode" : "codex",
-        model: i % 4 === 0 ? "glm-5.3" : "gpt-5.5",
-        cwd: `/w/${i}`,
-        workspaceId: wksId,
-        status: i % 6 === 0 ? "attention" : "running",
-        title: `task ${i}`,
+        id: `agt_large_${p}`,
+        provider: p % 4 === 0 ? "opencode" : "codex",
+        model: p % 4 === 0 ? "glm-5.3" : "gpt-5.5",
+        cwd: `/w/${p}`,
+        workspaceId: p % 3 === 0 ? `wks_large_wt_${p}` : `wks_large_root_${p}`,
+        status: p % 6 === 0 ? "attention" : "running",
+        title: `task ${p}`,
       });
     }
   }
