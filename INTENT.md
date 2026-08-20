@@ -84,7 +84,7 @@ Dark theme variants are deferred to Stage 6; tokens are defined once, themed lat
 | Backend | `@getpaseo/client` behind a single mockable `PaseoGateway`; the daemon is the only truth |
 | Layout | Manual placement + optional auto-arrange (elkjs) as a tool, never policy |
 | Input | Intent bus: touch + gamepad at MVP; gaze and speech enter the same bus |
-| Speech | STT engine TBD (Spike 0c: Web Speech API on Cromite, whisper.cpp WASM, or cloud); mini-model maps transcripts to intents/prompts |
+| Speech | transcribe.cpp (ggml, MIT) via a Node sidecar on the daemon host; browser AudioWorklet → 16 kHz PCM over tailnet WebSocket → committed/tentative partials; mini-model maps transcripts to intents/prompts. Fallbacks: native SpeechRecognition, whisper.cpp WASM |
 | Integrations | Derived from daemon data: workspace metadata first, MCP tool calls second, transcript parsing never as truth |
 | Process | Trunk-based, feature-flagged, main always shippable |
 | License | Never closed source; AGPL-compatible |
