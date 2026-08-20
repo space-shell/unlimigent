@@ -7,7 +7,8 @@ import type { GatewayAgent, GatewayEvent, GatewaySnapshot, GatewayWorkspace } fr
  * (verified 2026-08-20, see INTENT.md "Node ontology"):
  *   server → project → workspace (local | worktree, siblings) → agent sessions
  * Archived entities never visualise; nodes are removed when entities archive.
- * New nodes trigger an auto-arrange re-flow (pinned nodes keep positions). */
+ * There is no manual placement — graph changes always trigger an
+ * auto-arrange re-flow. */
 
 function agentStatus(agent: GatewayAgent): NodeStatus {
   if (agent.requiresAttention || agent.pendingPermissions > 0) return "attention";

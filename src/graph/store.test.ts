@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createGraphStore, nextFreePosition } from "./store";
+import { createGraphStore } from "./store";
 
 describe("graph store", () => {
   let store: ReturnType<typeof createGraphStore>;
@@ -93,16 +93,6 @@ describe("graph store", () => {
     const restored = store.getState();
     expect(Object.keys(restored.nodes)).toHaveLength(2);
     expect(Object.keys(restored.edges)).toHaveLength(1);
-  });
-
-  it("nextFreePosition spreads siblings around the parent", () => {
-    const s = store.getState();
-    const server = s.addNode({ kind: "server", title: "srv", position: { x: 0, y: 0 } });
-    const p1 = nextFreePosition(store.getState(), server.id);
-    s.addNode({ kind: "workspace", title: "w1", parentId: server.id, position: p1 });
-    const p2 = nextFreePosition(store.getState(), server.id);
-    expect(p1).not.toEqual(p2);
-    expect(Math.hypot(p2.x, p2.y)).toBeGreaterThan(0);
   });
 
   it("collapse hides descendants and uncollapsing restores them", () => {

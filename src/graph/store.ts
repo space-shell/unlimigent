@@ -215,22 +215,4 @@ export function childCount(state: GraphState, parentId: string): number {
   return n;
 }
 
-export function nextFreePosition(
-  state: GraphState,
-  parentId: string | null,
-): Vec2 {
-  if (!parentId) return { x: 0, y: 0 };
-  const parent = state.nodes[parentId];
-  if (!parent) return { x: 0, y: 0 };
-  const siblings = Object.values(state.nodes).filter(
-    (n) => n.parentId === parentId,
-  );
-  const i = siblings.length;
-  const angle = (i * Math.PI) / 6;
-  return {
-    x: parent.position.x + Math.cos(angle) * (220 + i * 40),
-    y: parent.position.y + Math.sin(angle) * (180 + i * 30),
-  };
-}
-
 export type { NodeKind };

@@ -46,7 +46,7 @@ De-risk assumptions before they are load-bearing.
 - Dexie persistence + JSON export/import (the user-journey safety net).
 - Intent bus taxonomy: `nav.*`, `camera.*`, `node.*`, `ui.*`, `voice.*`.
 - MockPaseoGateway emitting scripted daemon events.
-- elkjs auto-arrange as an invoked tool.
+- Fully automatic elkjs layout, grid-snapped — no manual node placement.
 - Exit criteria: store unit tests pass; mock events mutate graph; export/import
   round-trips.
 
