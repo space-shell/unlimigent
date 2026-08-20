@@ -10,15 +10,15 @@ export const GRID_WORLD = 2;
 const LAYOUT_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "RIGHT",
-  "elk.spacing.nodeNode": String(GRID_WORLD * 1.5),
+  "elk.spacing.nodeNode": String(GRID_WORLD * 2),
   "elk.layered.spacing.nodeNodeBetweenLayers": String(GRID_WORLD * 2),
-  "elk.nodeSize.minimum": "(4, 1.5)",
+  "elk.nodeSize.minimum": "(1.5, 4)",
 };
 
-/** Node footprint in world units — keep in sync with NODE_HALF_W/H in
- * canvas/cameraMath.ts. */
-export const ELK_NODE_W = 4;
-export const ELK_NODE_H = 1.5;
+/** Node footprint in world units after the plate's 90° Z-rotation (tall in
+ * Y, narrow in X). Keep in sync with PLATE_W in canvas/GroundNodes.tsx. */
+export const ELK_NODE_W = 1.5;
+export const ELK_NODE_H = 4;
 
 export interface ArrangeResult {
   moved: number;

@@ -46,6 +46,9 @@ function GraphApp() {
   }
   const runtime = runtimeRef.current;
   useCanvasGestures(canvasWrapRef, runtime);
+  if (import.meta.env.DEV) {
+    (globalThis as Record<string, unknown>).__unlimigent = runtime;
+  }
 
   return (
     <RuntimeProvider runtime={runtime}>

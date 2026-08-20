@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
+import { Line, Text } from "@react-three/drei";
 import { useStore } from "zustand";
 import type { Runtime } from "../app/runtime";
 import type { GraphNode } from "../graph/types";
@@ -10,11 +10,13 @@ import { tokens, type Token } from "../tokens";
 
 const FONT = "/unlimigent/fonts/JetBrainsMono-Regular.ttf";
 
-/** Plate footprint in world units (keep in sync with ELK_NODE_W/H). */
+/** Plate footprint in local units (long axis along local x). */
 export const PLATE_W = 4;
-export const PLATE_H = 1.5;
+/** Reference zoom for LOD scaling. */
+const REF_ZOOM = 48;
 
 const HOLD_MS = 600;
+const TAP_MS = 200;
 const DRAG_SLOP_PX = 6;
 
 const STATUS_TOKEN: Record<GraphNode["status"], Token> = {
@@ -26,12 +28,39 @@ const STATUS_TOKEN: Record<GraphNode["status"], Token> = {
   archived: "plum",
 };
 
-function lodFor(zoom: number): "dot" | "compact" | "full" | "detail" {
+type Lod = "dot" | "compact" | "full" | "detail";
+
+function lodFor(zoom: number): Lod {
   if (zoom >= 90) return "detail";
   if (zoom >= 28) return "full";
   if (zoom >= 12) return "compact";
   return "dot";
 }
+
+/** World-space scale so plates stay screen-legible across zoom: they grow
+ * on screen when zooming in (exponent < 1) but never vanish to specks. */
+export function plateScaleFor(zoom: number): number {
+  return Math.min(3.2, Math.max(0.55, Math.pow(REF_ZOOM / zoom, 0.5)));
+}
+
+interface LodSpec {
+  plateH: number;
+  titleFont: number;
+  subFont: number;
+  metaFont: number;
+  showSub: boolean;
+  showMeta: boolean;
+}
+
+const LOD_SPEC: Record<Lod, LodSpec> = {
+  dot: { plateH: 0.9, titleFont: 0, subFont: 0, metaFont: 0, showSub: false, showMeta: false },
+  compact: { plateH: 1.1, titleFont: 0.34, subFont: 0, metaFont: 0, showSub: false, showMeta: false },
+  full: { plateH: 1.7, titleFont: 0.34, subFont: 0.24, metaFont: 0, showSub: true, showMeta: false },
+  detail: { plateH: 3.1, titleFont: 0.34, subFont: 0.24, metaFont: 0.2, showSub: true, showMeta: true },
+};
+
+const CHAR_W = 0.62; // monospace advance ≈ 0.62em
+const trunc = (s: string, max: number) => (s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s);
 
 function subLine(node: GraphNode): string {
   switch (node.kind) {
@@ -56,16 +85,14 @@ function metaRows(node: GraphNode): Array<[string, string]> {
     }
   };
   push("branch", node.meta.branch);
-  push("path", node.meta.path);
   push("git", node.meta.git);
   push("pr", node.meta.pr);
   push("diff", node.meta.diff);
-  push("provider", node.meta.provider);
-  push("model", node.meta.model);
+  push("path", node.meta.path);
   push("mode", node.meta.mode);
-  push("permissions", node.meta.permissions);
-  push("attention", node.meta.attention);
-  return rows.slice(0, 6);
+  push("perms", node.meta.permissions);
+  push("attn", node.meta.attention);
+  return rows.slice(0, 5);
 }
 
 function descendantCount(store: Runtime["store"], id: string): number {
@@ -83,21 +110,66 @@ function descendantCount(store: Runtime["store"], id: string): number {
   return n;
 }
 
+/** Clockwise rounded-rect outline points starting from the top edge, left
+ * to right. */
+function outlinePoints(w: number, h: number, r: number, seg = 6): Array<[number, number]> {
+  // ccw: TR, TL, BL, BR — then reverse for clockwise from top edge
+  const ccw: Array<[number, number]> = [];
+  const cornerTo = (arr: Array<[number, number]>, cx: number, cy: number, a0: number, a1: number) => {
+    for (let i = 0; i <= seg; i++) {
+      const a = a0 + ((a1 - a0) * i) / seg;
+      arr.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+    }
+  };
+  cornerTo(ccw, w / 2 - r, h / 2 - r, 0, Math.PI / 2);
+  cornerTo(ccw, -w / 2 + r, h / 2 - r, Math.PI / 2, Math.PI);
+  cornerTo(ccw, -w / 2 + r, -h / 2 + r, Math.PI, (3 * Math.PI) / 2);
+  cornerTo(ccw, w / 2 - r, -h / 2 + r, (3 * Math.PI) / 2, 2 * Math.PI);
+  return [...ccw].reverse();
+}
+
+/** Partial outline up to fraction t of total perimeter length. */
+function partialOutline(
+  pts: Array<[number, number]>,
+  t: number,
+): Array<[number, number, number]> {
+  const lengths: number[] = [0];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    total += Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]);
+    lengths.push(total);
+  }
+  const target = total * Math.min(1, Math.max(0, t));
+  const out: Array<[number, number, number]> = [[pts[0]![0], pts[0]![1], 0]];
+  for (let i = 1; i < pts.length; i++) {
+    if (lengths[i]! <= target) {
+      out.push([pts[i]![0], pts[i]![1], 0]);
+    } else {
+      const segLen = lengths[i]! - lengths[i - 1]!;
+      const f = segLen > 0 ? (target - lengths[i - 1]!) / segLen : 0;
+      const x = pts[i - 1]![0] + (pts[i]![0] - pts[i - 1]![0]) * f;
+      const y = pts[i - 1]![1] + (pts[i]![1] - pts[i - 1]![1]) * f;
+      out.push([x, y, 0]);
+      break;
+    }
+  }
+  return out;
+}
+
 interface HoldState {
   active: boolean;
   startAt: number;
-  fill: number;
   done: boolean;
 }
 
 function GroundPlate({
   node,
-  lod,
+  spec,
   focused,
   runtime,
 }: {
   node: GraphNode;
-  lod: "dot" | "compact" | "full" | "detail";
+  spec: LodSpec;
   focused: boolean;
   runtime: Runtime;
 }) {
@@ -105,7 +177,7 @@ function GroundPlate({
   const hiddenCount = descendantCount(runtime.store, node.id);
   const accent = tokens[STATUS_TOKEN[node.status]];
 
-  const holdRef = useRef<HoldState>({ active: false, startAt: 0, fill: 0, done: false });
+  const holdRef = useRef<HoldState>({ active: false, startAt: 0, done: false });
   const [fill, setFill] = useState(0);
   const dragRef = useRef<{
     pointerId: number;
@@ -140,7 +212,6 @@ function GroundPlate({
     const drag = dragRef.current;
     dragRef.current = null;
     if (drag?.moved) {
-      // snap to grid on release
       const p = runtime.store.getState().nodes[node.id]?.position;
       if (p) {
         runtime.store.getState().moveNode(node.id, {
@@ -156,7 +227,7 @@ function GroundPlate({
     e.stopPropagation();
     if (e.nativeEvent.button !== undefined && e.nativeEvent.button !== 0) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
-    holdRef.current = { active: true, startAt: performance.now(), fill: 0, done: false };
+    holdRef.current = { active: true, startAt: performance.now(), done: false };
     dragRef.current = {
       pointerId: e.pointerId,
       startX: e.nativeEvent.clientX,
@@ -189,23 +260,35 @@ function GroundPlate({
 
   const onUp = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const drag = endDrag();
-    const wasHolding = holdRef.current.active || holdRef.current.done;
+    const hold = holdRef.current;
+    const elapsed = performance.now() - hold.startAt;
+    const completedHold = hold.done;
     cancelHold();
-    if (drag && !drag.moved && !wasHolding) {
+    const drag = endDrag();
+    // tap: quick release, no drag, and the hold never completed
+    if (drag && !drag.moved && !completedHold && elapsed < TAP_MS) {
       runtime.bus.dispatch({ type: "node.activate", source: "touch", id: node.id });
     }
+    setFill(0);
   };
 
-  const textPad = 0.28;
-  const borderW = focused ? PLATE_W + 0.24 : PLATE_W + 0.12;
-  const borderH = focused ? PLATE_H + 0.24 : PLATE_H + 0.12;
+  const h = spec.plateH;
+  const pad = 0.28;
+  const borderW = PLATE_W + (focused ? 0.22 : 0.1);
+  const borderH = h + (focused ? 0.22 : 0.1);
 
-  const detailRows = lod === "detail" ? metaRows(node) : [];
+  const titleChars = Math.floor((PLATE_W - pad * 2 - 0.35) / (spec.titleFont * CHAR_W));
+  const subChars = Math.floor((PLATE_W - pad * 2) / (spec.subFont * CHAR_W));
+  const metaChars = Math.floor((PLATE_W - pad * 2) / (spec.metaFont * CHAR_W));
+
+  const outline = outlinePoints(borderW, borderH, 0.18);
+
+  const detailRows = spec.showMeta ? metaRows(node) : [];
 
   return (
     <group
-      position={[node.position.x, node.position.y, 0.02]}
+      position={[0, 0, 0.02]}
+      rotation={[0, 0, Math.PI / 2]}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
@@ -214,14 +297,15 @@ function GroundPlate({
         endDrag();
       }}
     >
-      {/* hairline border plate */}
-      <mesh position={[0, 0, -0.01]}>
-        <planeGeometry args={[borderW, borderH]} />
-        <meshBasicMaterial color={focused ? accent : tokens.inkFaint} />
-      </mesh>
+      {/* hairline border */}
+      <Line
+        points={outline.map(([x, y]) => [x, y, -0.01] as [number, number, number])}
+        color={focused ? accent : tokens.inkFaint}
+        lineWidth={focused ? 2 : 1}
+      />
       {/* paper fill */}
       <mesh>
-        <planeGeometry args={[PLATE_W, PLATE_H]} />
+        <planeGeometry args={[PLATE_W, h]} />
         <meshBasicMaterial
           color={tokens.paper}
           transparent
@@ -229,69 +313,60 @@ function GroundPlate({
         />
       </mesh>
       {/* status dot */}
-      <mesh position={[PLATE_W / 2 - textPad, lod === "dot" ? 0 : PLATE_H / 2 - 0.32, 0.002]}>
-        <circleGeometry args={[0.12, 16]} />
+      <mesh position={[PLATE_W / 2 - pad, h / 2 - 0.3, 0.002]}>
+        <circleGeometry args={[0.11, 16]} />
         <meshBasicMaterial color={accent} />
       </mesh>
-      {/* hold-to-collapse ring: fills clockwise around the plate border */}
+      {/* hold-to-collapse: offset outline filling clockwise */}
       {fill > 0 && fill < 1 && (
-        <mesh position={[0, 0, 0.004]}>
-          <ringGeometry args={[PLATE_H / 2 + 0.02, PLATE_H / 2 + 0.22, 48, 1, Math.PI / 2, fill * Math.PI * 2]} />
-          <meshBasicMaterial color={accent} />
-        </mesh>
+        <Line points={partialOutline(outline, fill)} color={accent} lineWidth={3} />
       )}
-      {lod !== "dot" && (
+      {spec.titleFont > 0 && (
         <Text
           font={FONT}
-          fontSize={lod === "compact" ? 0.3 : 0.34}
+          fontSize={spec.titleFont}
           color={tokens.ink}
           anchorX="left"
           anchorY="top"
-          position={[-PLATE_W / 2 + textPad, PLATE_H / 2 - 0.18, 0.002]}
-         
-          maxWidth={PLATE_W - textPad * 2 - 0.4}
+          position={[-PLATE_W / 2 + pad, h / 2 - 0.16, 0.002]}
         >
-          {node.title}
+          {trunc(node.title, titleChars)}
         </Text>
       )}
-      {lod !== "dot" && (
+      {spec.showSub && spec.subFont > 0 && (
         <Text
           font={FONT}
-          fontSize={0.22}
+          fontSize={spec.subFont}
           color={tokens.inkFaint}
           anchorX="left"
           anchorY="top"
-          position={[-PLATE_W / 2 + textPad, PLATE_H / 2 - 0.68, 0.002]}
-         
-          maxWidth={PLATE_W - textPad * 2}
+          position={[-PLATE_W / 2 + pad, h / 2 - 0.62, 0.002]}
         >
-          {subLine(node)}
+          {trunc(subLine(node), subChars)}
         </Text>
       )}
       {detailRows.length > 0 && (
         <Text
           font={FONT}
-          fontSize={0.2}
+          fontSize={spec.metaFont}
           color={tokens.inkFaint}
           anchorX="left"
           anchorY="top"
-          position={[-PLATE_W / 2 + textPad, -PLATE_H / 2 + detailRows.length * 0.3 + 0.1, 0.002]}
-         
-          maxWidth={PLATE_W - textPad * 2}
+          lineHeight={1.35}
+          position={[-PLATE_W / 2 + pad, h / 2 - 1.1, 0.002]}
         >
-          {detailRows.map(([k, v]) => `${k} ${v}`).join("\n")}
+          {detailRows.map(([k, v]) => `${k} ${trunc(v, metaChars - k.length - 1)}`).join("\n")}
         </Text>
       )}
       {/* collapsed subtree badge */}
       {collapsed && hiddenCount > 0 && (
         <Text
           font={FONT}
-          fontSize={0.3}
+          fontSize={spec.titleFont || 0.3}
           color={accent}
           anchorX="center"
           anchorY="middle"
-          position={[0, 0, 0.002]}
-         
+          position={[0, 0, 0.004]}
         >
           {`+${hiddenCount}`}
         </Text>
@@ -304,21 +379,23 @@ export function GroundNodes({ runtime, viewport }: { runtime: Runtime; viewport:
   const nodes = useStore(runtime.store, (s) => s.nodes);
   const camera = useStore(runtime.store, (s) => s.camera);
   const focusedNodeId = useStore(runtime.store, (s) => s.focusedNodeId);
-  const hidden = useRef<Set<string>>(new Set());
+  const collapsedIds = useStore(runtime.store, (s) => s.collapsedIds);
 
-  // recompute hidden (collapsed descendants) cheaply on nodes/collapse change
-  hidden.current = new Set();
+  // collapsed subtrees hide their descendant plates (and edges — EdgeOverlay)
   const state = runtime.store.getState();
-  for (const id of state.collapsedIds) {
+  const hidden = new Set<string>();
+  for (const id of collapsedIds) {
     for (const node of Object.values(nodes) as GraphNode[]) {
-      if (state.isDescendantOf(node.id, id)) hidden.current.add(node.id);
+      if (node.id !== id && state.isDescendantOf(node.id, id)) hidden.add(node.id);
     }
   }
 
   const lod = lodFor(camera.zoom);
-  const margin = 240;
+  const spec = LOD_SPEC[lod];
+  const scale = plateScaleFor(camera.zoom);
+  const margin = 280;
   const list = (Object.values(nodes) as GraphNode[]).filter((n) => {
-    if (hidden.current.has(n.id)) return false;
+    if (hidden.has(n.id)) return false;
     const s = worldToScreen(n.position.x, n.position.y, camera, viewport);
     return (
       s.x > -margin && s.x < viewport.width + margin &&
@@ -329,13 +406,16 @@ export function GroundNodes({ runtime, viewport }: { runtime: Runtime; viewport:
   return (
     <>
       {list.map((node) => (
-        <GroundPlate
-          key={node.id}
-          node={node}
-          lod={lod}
-          focused={node.id === focusedNodeId}
-          runtime={runtime}
-        />
+        <group key={node.id} position={[node.position.x, node.position.y, 0]} scale={[scale, scale, 1]}>
+          <group position={[0, 0, 0]}>
+            <GroundPlate
+              node={node}
+              spec={spec}
+              focused={node.id === focusedNodeId}
+              runtime={runtime}
+            />
+          </group>
+        </group>
       ))}
     </>
   );
