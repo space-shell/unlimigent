@@ -128,6 +128,23 @@ describe("gateway projection", () => {
     projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
     expect(Object.keys(store.getState().nodes)).toHaveLength(4);
   });
+
+  it("prunes gateway nodes absent from a later snapshot", () => {
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: snapshot() });
+    const shrunk: GatewaySnapshot = {
+      ...snapshot(),
+      workspaces: snapshot().workspaces.filter((w) => w.id === "wks_a"),
+      agents: [],
+    };
+    projectGatewayEvent(store, { kind: "snapshot", snapshot: shrunk });
+    const state = store.getState();
+    expect(state.nodes).toBeDefined();
+    expect(Object.values(state.nodes).map((n) => n.externalId).sort()).toEqual([
+      null,
+      "wks_a",
+    ]);
+    expect(Object.keys(state.edges)).toHaveLength(1);
+  });
 });
 
 describe("mock gateway", () => {

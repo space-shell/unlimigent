@@ -156,6 +156,23 @@ function applySnapshot(store: GraphStore, snapshot: GatewaySnapshot): void {
   ];
   for (const ws of ordered) upsertWorkspace(store, serverId, ws);
   for (const agent of snapshot.agents) upsertAgent(store, agent);
+
+  // a snapshot is authoritative for gateway-origin nodes: prune anything the
+  // daemon no longer reports (also clears a previous gateway's leftovers,
+  // e.g. mock nodes persisted before switching to the live daemon)
+  const liveIds = new Set<string>([
+    ...snapshot.workspaces.map((w) => w.id),
+    ...snapshot.agents.map((a) => a.id),
+  ]);
+  const state = store.getState();
+  const stale = Object.values(state.nodes).filter(
+    (n) =>
+      n.origin === "gateway" &&
+      n.kind !== "server" &&
+      n.externalId !== null &&
+      !liveIds.has(n.externalId),
+  );
+  for (const node of stale) store.getState().removeNode(node.id);
 }
 
 export function projectGatewayEvent(store: GraphStore, event: GatewayEvent): void {
