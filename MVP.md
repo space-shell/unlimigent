@@ -12,7 +12,7 @@ that journey on the physical device. Everything else is post-MVP.
 
 | Stage | Flag | Focus | Status |
 |---|---|---|---|
-| 0 | — | Foundations & spikes | ◐ in progress |
+| 0 | — | Foundations & spikes | ✓ complete 2026-08-20 |
 | 1 | `stage1` | Graph core & input model | ☐ not started |
 | 2 | `stage2` | Canvas & touch navigation | ☐ not started |
 | 3 | `stage3` | Gamepad & game UX | ☐ not started |
@@ -31,16 +31,13 @@ De-risk assumptions before they are load-bearing.
   points. (`src/flags.ts`)
 - Spikes (findings logged below):
   - [x] **0a** Paseo event surface — findings below.
-  - [ ] **0b** HTML-in-canvas on device: WICG demos on the pad (Cromite) + desktop;
-    record flag/trial availability. Determines the `HTMLTexture` slot.
-  - [ ] **0c** STT engine: Web Speech API availability on Cromite (likely absent —
-    Google services stripped); whisper.cpp WASM model size/latency on the pad; cloud
-    fallback. Determines the speech stack for Stage 5.
-  - [ ] **0d** Pages-origin → local daemon: HTTPS origin connecting to `ws://localhost`
-    (mixed content + Private Network Access behavior on Cromite). Fallback remains
-    adb reverse against a local dev server.
+  - [x] **0b** HTML-in-canvas on device — findings below.
+  - [x] **0c** STT engine — findings below.
+  - [x] **0d** Pages-origin → local daemon — findings below.
 - Exit criteria: spike findings recorded; `nix develop` → `npm run dev` serves an
-  empty R3F canvas on the pad. (devshell + build green; on-pad check pending)
+  empty R3F canvas on the pad. **Met 2026-08-20** — canvas, drei `<Html>`
+  TextSurface, and webgl2 verified on the pad via screenshot + diagnostics
+  (`scripts/device-*.mjs` CDP probes).
 
 ## Stage 1 — Graph core & input model (renderer-agnostic)
 
@@ -109,9 +106,9 @@ yaw) · collaboration/CRDT sync.
 | Spike | Question | Finding | Date |
 |---|---|---|---|
 | 0a | Paseo event granularity? | **Answered — richer than assumed.** Daemon reachable at `ws://100.127.193.39:6767/ws` (no password on tailnet). SDK namespaces: `workspaces` (list/ref/open/create/archive/subscribe), `agents` (list/ref/create/subscribe), `providers` (listModels/listModes/listFeatures/listAvailable/snapshot/waitForReady/refresh/diagnostic/subscribe), `config` (get/patch). No global `client.on` — per-namespace `subscribe(handler)` returning an unsubscribe fn; no events observed on an idle daemon (payload shapes confirmed in Stage 4). `workspaces.list` payloads include `gitRuntime` (branch, remote, dirty, ahead/behind), `githubRuntime.pullRequest`, `forge`, `workspaceKind` (`local_checkout`), project grouping — **GitHub PR state arrives via daemon metadata; integration nodes need no separate GitHub API for MVP**. `agents.list` includes provider/model/status/activeTurn/capabilities (`supportsMcpServers`, `supportsToolInvocations`). No first-class permissions namespace in client 0.4.0 — permissions expected via agent status/events. License: `@getpaseo/client@0.4.0` ships no license field; monorepo root is AGPL-3.0 — fine for never-closed-source. Probe scripts: `scripts/spike-0a*.mjs` | 2026-08-20 |
-| 0b | HTML-in-canvas on Cromite? | — | — |
-| 0c | STT engine options on device? | — | — |
-| 0d | Pages → local daemon connectivity? | — | — |
+| 0b | HTML-in-canvas on Cromite? | **Available and functional.** Cromite = Chromium 148: `layoutSubtree`, `drawElementImage`, `texElementImage2D`, `copyElementImageToTexture` all present; WICG complex-text demo renders on the pad (rotated/RTL/vertical CJK text, emoji, inline img, SVG). The `HTMLTexture` TextSurface slot is real on the target device. Caveat: WebGL is blocked per-site by Cromite policy — each origin used (localhost:5173, space-shell.github.io) needs Site settings → WebGL → Allow. | 2026-08-20 |
+| 0c | STT engine options on device? | `SpeechRecognition`/`webkitSpeechRecognition` **present**, `getUserMedia` present, secure context ok. **WebAssembly disabled browser-wide** (`typeof WebAssembly === "undefined"` across origins — Bromite-inherited hardening) → whisper.cpp WASM path dead unless enabled via flag. Primary: native SpeechRecognition (live mic test pending — Cromite may strip Chromium's baked-in speech API key, in which case it errors at start); fallback: cloud STT via fetch. | 2026-08-20 |
+| 0d | Pages → local daemon connectivity? | **Blocked.** HTTPS Pages origin throws synchronously on `new WebSocket("ws://…")` (mixed content) — both `ws://100.127.193.39:6767` and `ws://localhost:6767`. Pages deploy = on-the-go UI testing with mock data only; daemon-connected sessions use the localhost dev server via adb reverse, or a future wss:// reverse proxy on the tailnet. | 2026-08-20 |
 
 ## Feature flag policy
 
