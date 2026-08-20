@@ -42,8 +42,11 @@ first; they are the source of truth for what this project is and what is in scop
 
 - Target device: OnePlus Pad 3, Cromite. On-device verification is the exit bar for
   every stage — "runs on desktop" does not count.
-- Local device testing: `adb reverse tcp:5173 tcp:5173` (app) and
-  `adb reverse tcp:6767 tcp:6767` (daemon).
+- Local device testing (pad on tailnet): app `http://localhost:5173/unlimigent/`
+  via `adb reverse tcp:5173 tcp:5173` (secure context; dev server base path is
+  `/unlimigent/`); daemon direct at `ws://100.127.193.39:6767/ws` — the daemon
+  binds the tailscale interface, not loopback, so `adb reverse tcp:6767` forwards
+  nothing.
 - On-the-go testing: GitHub Pages deploy on push to main.
 
 ## Commands
