@@ -29,7 +29,7 @@ export function InfoBar({ runtime }: { runtime: Runtime }) {
 
   const meta = Object.entries(node.meta)
     .filter(([, v]) => v !== null && v !== "")
-    .slice(0, 3)
+    .slice(0, 5)
     .map(([k, v]) => `${k} ${v}`)
     .join("  ");
 

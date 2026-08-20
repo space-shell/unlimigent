@@ -3,24 +3,9 @@ import { useStore } from "zustand";
 import { Html } from "@react-three/drei";
 import type { Runtime } from "../app/runtime";
 import type { GraphNode } from "../graph/types";
-import {
-  NODE_HALF_H,
-  NODE_HALF_W,
-  rectVisible,
-  viewRect,
-  type Viewport,
-} from "./cameraMath";
+import { screenDeltaToWorld, worldToScreen, type Viewport } from "./cameraMath";
 
-const KIND_GLYPH: Record<GraphNode["kind"], string> = {
-  server: "◉",
-  workspace: "◇",
-  worktree: "◇",
-  agent: "▲",
-  schedule: "○",
-  integration: "✦",
-};
-
-const CULL_MARGIN = 1;
+const CULL_MARGIN_PX = 120;
 
 function lodFor(zoom: number): "full" | "compact" | "dot" {
   if (zoom >= 28) return "full";
@@ -119,10 +104,11 @@ function NodeCard({
             clearTimeout(drag.timer);
           }
           if (drag.moved) {
-            const zoom = runtime.store.getState().camera.zoom;
-            runtime.store.getState().moveNode(node.id, {
-              x: drag.originPos.x + dxPx / zoom,
-              y: drag.originPos.y - dyPx / zoom,
+            const state = runtime.store.getState();
+            const d = screenDeltaToWorld(dxPx, dyPx, state.camera);
+            state.moveNode(node.id, {
+              x: drag.originPos.x + d.x,
+              y: drag.originPos.y + d.y,
             });
           }
         }}
@@ -141,15 +127,10 @@ function NodeCard({
         onPointerCancel={() => endInteraction()}
       >
         {lod !== "dot" && (
-          <>
-            <span className="node-glyph" aria-hidden="true">
-              {KIND_GLYPH[node.kind]}
-            </span>
-            <span className="node-text">
-              <span className="node-title">{node.title}</span>
-              {lod === "full" && <span className="node-sub">{subLine(node)}</span>}
-            </span>
-          </>
+          <span className="node-text">
+            <span className="node-title">{node.title}</span>
+            {lod === "full" && <span className="node-sub">{subLine(node)}</span>}
+          </span>
         )}
       </div>
     </Html>
@@ -167,11 +148,16 @@ export function NodeLayer({
   const camera = useStore(runtime.store, (s) => s.camera);
   const focusedNodeId = useStore(runtime.store, (s) => s.focusedNodeId);
 
-  const rect = viewRect(camera, viewport);
   const lod = lodFor(camera.zoom);
-  const list = Object.values(nodes).filter((n) =>
-    rectVisible(rect, n.position, NODE_HALF_W, NODE_HALF_H, CULL_MARGIN),
-  );
+  const list = Object.values(nodes).filter((n) => {
+    const s = worldToScreen(n.position.x, n.position.y, camera, viewport);
+    return (
+      s.x > -CULL_MARGIN_PX &&
+      s.x < viewport.width + CULL_MARGIN_PX &&
+      s.y > -CULL_MARGIN_PX &&
+      s.y < viewport.height + CULL_MARGIN_PX
+    );
+  });
 
   return (
     <>
