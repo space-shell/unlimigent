@@ -56,6 +56,9 @@ only where state demands attention. Playful through restraint, not decoration.
 - Color: token palette below. Neutrals carry the page; accents appear only on state
   (running, attention, error, success, archive). Muted base, popping on demand.
 - Whitespace: generous. Muji: functional, unbranded, calm.
+- Canvas orientation: isometric — the world plane is viewed rotated 45°; the
+  plus-mark grid, manhattan (90°-bend) edges, and node cards all align to the
+  rotated axes. On-device check 2026-08-20: verified readable and native-feeling.
 - On-device check 2026-08-20: palette and monospace typography confirmed good;
   literal ASCII art reads as noise — excluded.
 
