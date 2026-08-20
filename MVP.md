@@ -13,11 +13,11 @@ that journey on the physical device. Everything else is post-MVP.
 | Stage | Flag | Focus | Status |
 |---|---|---|---|
 | 0 | — | Foundations & spikes | ✓ complete 2026-08-20 |
-| 1 | `stage1` | Graph core & input model | ☐ not started |
+| 1 | `stage1` | Graph core & input model | ◐ in progress |
 | 2 | `stage2` | Canvas & touch navigation | ☐ not started |
 | 3 | `stage3` | Gamepad & game UX | ☐ not started |
 | 4 | `stage4` | Live Paseo mirror | ☐ not started |
-| 5 | `stage5` | Voice & hands-free | ☐ not started |
+| 5 | `stage5` | Voice & hands-free | ⏸ deferred 2026-08-20 (user call; revisit after Stage 4) |
 | 6 | `stage6` | Journey polish & PWA | ☐ not started |
 
 ## Stage 0 — Foundations & spikes
