@@ -13,6 +13,9 @@ body {
     monospace;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .boot {
@@ -76,73 +79,4 @@ body {
   stroke: var(--ink-faint);
   stroke-width: 1;
   opacity: 0.35;
-}
-
-.edge-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-}
-
-.edge-overlay path {
-  stroke: var(--ink-faint);
-  stroke-width: 1;
-  fill: none;
-  opacity: 0.55;
-}
-
-/* ---- info bar ---- */
-
-.info-bar {
-  position: absolute;
-  left: 50%;
-  bottom: 1.25rem;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: flex;
-  align-items: baseline;
-  gap: 0.9rem;
-  max-width: min(92vw, 46rem);
-  padding: 0.65rem 1.1rem;
-  background: var(--paper);
-  border: 1px solid var(--ink-faint);
-  border-radius: 4px;
-  font-size: 0.68rem;
-  pointer-events: none;
-}
-
-.info-kind {
-  color: var(--ink-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.6rem;
-}
-
-.info-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.info-status {
-  --node-accent: var(--ink-faint);
-  color: var(--node-accent);
-}
-.info-status[data-status="running"] { --node-accent: var(--indigo); }
-.info-status[data-status="attention"] { --node-accent: var(--ochre); }
-.info-status[data-status="error"] { --node-accent: var(--terracotta); }
-.info-status[data-status="done"] { --node-accent: var(--moss); }
-.info-status[data-status="archived"] { --node-accent: var(--plum); }
-
-.info-meta {
-  color: var(--ink-faint);
-  font-size: 0.6rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.info-hint {
-  color: var(--ink-faint);
 }

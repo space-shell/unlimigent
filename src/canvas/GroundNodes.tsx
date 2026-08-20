@@ -4,7 +4,7 @@ import { Line, Text } from "@react-three/drei";
 import { useStore } from "zustand";
 import type { Runtime } from "../app/runtime";
 import type { GraphNode } from "../graph/types";
-import { snapToGrid } from "../graph/arrange";
+import { autoArrange, snapToGrid } from "../graph/arrange";
 import { screenDeltaToWorld, worldToScreen, type Viewport } from "./cameraMath";
 import { tokens, type Token } from "../tokens";
 
@@ -53,10 +53,10 @@ interface LodSpec {
 }
 
 const LOD_SPEC: Record<Lod, LodSpec> = {
-  dot: { plateH: 0.9, titleFont: 0, subFont: 0, metaFont: 0, showSub: false, showMeta: false },
+  dot: { plateH: 0, titleFont: 0, subFont: 0, metaFont: 0, showSub: false, showMeta: false },
   compact: { plateH: 1.1, titleFont: 0.34, subFont: 0, metaFont: 0, showSub: false, showMeta: false },
   full: { plateH: 1.7, titleFont: 0.34, subFont: 0.24, metaFont: 0, showSub: true, showMeta: false },
-  detail: { plateH: 3.1, titleFont: 0.34, subFont: 0.24, metaFont: 0.2, showSub: true, showMeta: true },
+  detail: { plateH: 4.4, titleFont: 0.34, subFont: 0.24, metaFont: 0.2, showSub: true, showMeta: true },
 };
 
 const CHAR_W = 0.62; // monospace advance ≈ 0.62em
@@ -70,6 +70,8 @@ function subLine(node: GraphNode): string {
       return String(node.meta.path ?? node.meta.branch ?? "workspace");
     case "worktree":
       return String(node.meta.worktree ?? node.meta.branch ?? "worktree");
+    case "project":
+      return "project";
     case "server":
       return "daemon";
     default:
@@ -89,10 +91,13 @@ function metaRows(node: GraphNode): Array<[string, string]> {
   push("pr", node.meta.pr);
   push("diff", node.meta.diff);
   push("path", node.meta.path);
+  push("provider", node.meta.provider);
+  push("model", node.meta.model);
   push("mode", node.meta.mode);
   push("perms", node.meta.permissions);
   push("attn", node.meta.attention);
-  return rows.slice(0, 5);
+  push("activity", node.meta.activity);
+  return rows.slice(0, 8);
 }
 
 function descendantCount(store: Runtime["store"], id: string): number {
@@ -110,22 +115,22 @@ function descendantCount(store: Runtime["store"], id: string): number {
   return n;
 }
 
-/** Clockwise rounded-rect outline points starting from the top edge, left
- * to right. */
-function outlinePoints(w: number, h: number, r: number, seg = 6): Array<[number, number]> {
-  // ccw: TR, TL, BL, BR — then reverse for clockwise from top edge
+/** Clockwise rounded-rect outline, closed, starting/ending on the top edge. */
+function outlinePoints(w: number, h: number, r: number, seg = 5): Array<[number, number]> {
   const ccw: Array<[number, number]> = [];
-  const cornerTo = (arr: Array<[number, number]>, cx: number, cy: number, a0: number, a1: number) => {
+  const cornerTo = (cx: number, cy: number, a0: number, a1: number) => {
     for (let i = 0; i <= seg; i++) {
       const a = a0 + ((a1 - a0) * i) / seg;
-      arr.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+      ccw.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
     }
   };
-  cornerTo(ccw, w / 2 - r, h / 2 - r, 0, Math.PI / 2);
-  cornerTo(ccw, -w / 2 + r, h / 2 - r, Math.PI / 2, Math.PI);
-  cornerTo(ccw, -w / 2 + r, -h / 2 + r, Math.PI, (3 * Math.PI) / 2);
-  cornerTo(ccw, w / 2 - r, -h / 2 + r, (3 * Math.PI) / 2, 2 * Math.PI);
-  return [...ccw].reverse();
+  cornerTo(w / 2 - r, h / 2 - r, 0, Math.PI / 2);
+  cornerTo(-w / 2 + r, h / 2 - r, Math.PI / 2, Math.PI);
+  cornerTo(-w / 2 + r, -h / 2 + r, Math.PI, (3 * Math.PI) / 2);
+  cornerTo(w / 2 - r, -h / 2 + r, (3 * Math.PI) / 2, 2 * Math.PI);
+  // start mid-top edge, run clockwise, close the loop
+  const clockwise = [...ccw].reverse();
+  return [[-w / 2 + r, h / 2], ...clockwise, [-w / 2 + r, h / 2]];
 }
 
 /** Partial outline up to fraction t of total perimeter length. */
@@ -165,11 +170,13 @@ interface HoldState {
 function GroundPlate({
   node,
   spec,
+  lod,
   focused,
   runtime,
 }: {
   node: GraphNode;
   spec: LodSpec;
+  lod: Lod;
   focused: boolean;
   runtime: Runtime;
 }) {
@@ -198,7 +205,10 @@ function GroundPlate({
     if (t >= 1 && !hold.done) {
       hold.done = true;
       hold.active = false;
+      const wasCollapsed = collapsed;
       runtime.store.getState().toggleCollapsed(node.id);
+      // expansion re-flows the graph (pinned nodes keep their positions)
+      if (wasCollapsed) void autoArrange(runtime.store);
       setFill(0);
     }
   });
@@ -251,9 +261,10 @@ function GroundPlate({
     if (drag.moved) {
       const state = runtime.store.getState();
       const d = screenDeltaToWorld(dxPx, dyPx, state.camera);
+      // live grid snap while dragging
       state.moveNode(node.id, {
-        x: drag.origin.x + d.x,
-        y: drag.origin.y + d.y,
+        x: snapToGrid(drag.origin.x + d.x),
+        y: snapToGrid(drag.origin.y + d.y),
       });
     }
   };
@@ -265,15 +276,39 @@ function GroundPlate({
     const completedHold = hold.done;
     cancelHold();
     const drag = endDrag();
-    // tap: quick release, no drag, and the hold never completed
     if (drag && !drag.moved && !completedHold && elapsed < TAP_MS) {
       runtime.bus.dispatch({ type: "node.activate", source: "touch", id: node.id });
     }
     setFill(0);
   };
 
-  const h = spec.plateH;
   const pad = 0.28;
+
+  // ---- dot LOD: bare status dot + invisible hit disc ----
+  if (lod === "dot") {
+    return (
+      <group
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={() => {
+          cancelHold();
+          endDrag();
+        }}
+      >
+        <mesh>
+          <circleGeometry args={[0.22, 16]} />
+          <meshBasicMaterial color={accent} />
+        </mesh>
+        <mesh>
+          <circleGeometry args={[0.9, 8]} />
+          <meshBasicMaterial visible={false} />
+        </mesh>
+      </group>
+    );
+  }
+
+  const h = spec.plateH;
   const borderW = PLATE_W + (focused ? 0.22 : 0.1);
   const borderH = h + (focused ? 0.22 : 0.1);
 
@@ -283,11 +318,15 @@ function GroundPlate({
 
   const outline = outlinePoints(borderW, borderH, 0.18);
 
+  // collapsed stack: up to 5 card outlines beneath, 3 opaque + 2 fading
+  const stackCount = collapsed ? Math.min(5, hiddenCount) : 0;
+  const stackOffsets = [0.28, 0.56, 0.84, 1.12, 1.4];
+  const stackOpacity = [1, 1, 1, 0.5, 0.25];
+
   const detailRows = spec.showMeta ? metaRows(node) : [];
 
   return (
     <group
-      position={[0, 0, 0.02]}
       rotation={[0, 0, Math.PI / 2]}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -297,20 +336,30 @@ function GroundPlate({
         endDrag();
       }}
     >
-      {/* hairline border */}
+      {/* collapsed stack beneath */}
+      {stackCount > 0 &&
+        stackOffsets.slice(0, stackCount).map((off, i) => (
+          <Line
+            key={`stack-${i}`}
+            points={outlinePoints(PLATE_W + 0.1, h + 0.1, 0.18).map(
+              ([x, y]) => [x, y - off, -0.02 - i * 0.001] as [number, number, number],
+            )}
+            color={tokens.inkFaint}
+            lineWidth={1}
+            opacity={stackOpacity[i] ?? 0.25}
+            transparent
+          />
+        ))}
+      {/* hairline border (closed loop) */}
       <Line
         points={outline.map(([x, y]) => [x, y, -0.01] as [number, number, number])}
         color={focused ? accent : tokens.inkFaint}
         lineWidth={focused ? 2 : 1}
       />
-      {/* paper fill */}
-      <mesh>
+      {/* opaque paper fill */}
+      <mesh position={[0, 0, -0.005]}>
         <planeGeometry args={[PLATE_W, h]} />
-        <meshBasicMaterial
-          color={tokens.paper}
-          transparent
-          opacity={node.status === "archived" ? 0.65 : 1}
-        />
+        <meshBasicMaterial color={tokens.paper} />
       </mesh>
       {/* status dot */}
       <mesh position={[PLATE_W / 2 - pad, h / 2 - 0.3, 0.002]}>
@@ -358,19 +407,6 @@ function GroundPlate({
           {detailRows.map(([k, v]) => `${k} ${trunc(v, metaChars - k.length - 1)}`).join("\n")}
         </Text>
       )}
-      {/* collapsed subtree badge */}
-      {collapsed && hiddenCount > 0 && (
-        <Text
-          font={FONT}
-          fontSize={spec.titleFont || 0.3}
-          color={accent}
-          anchorX="center"
-          anchorY="middle"
-          position={[0, 0, 0.004]}
-        >
-          {`+${hiddenCount}`}
-        </Text>
-      )}
     </group>
   );
 }
@@ -381,7 +417,6 @@ export function GroundNodes({ runtime, viewport }: { runtime: Runtime; viewport:
   const focusedNodeId = useStore(runtime.store, (s) => s.focusedNodeId);
   const collapsedIds = useStore(runtime.store, (s) => s.collapsedIds);
 
-  // collapsed subtrees hide their descendant plates (and edges — EdgeOverlay)
   const state = runtime.store.getState();
   const hidden = new Set<string>();
   for (const id of collapsedIds) {
@@ -406,15 +441,18 @@ export function GroundNodes({ runtime, viewport }: { runtime: Runtime; viewport:
   return (
     <>
       {list.map((node) => (
-        <group key={node.id} position={[node.position.x, node.position.y, 0]} scale={[scale, scale, 1]}>
-          <group position={[0, 0, 0]}>
-            <GroundPlate
-              node={node}
-              spec={spec}
-              focused={node.id === focusedNodeId}
-              runtime={runtime}
-            />
-          </group>
+        <group
+          key={node.id}
+          position={[node.position.x, node.position.y, 0]}
+          scale={[scale, scale, 1]}
+        >
+          <GroundPlate
+            node={node}
+            spec={spec}
+            lod={lod}
+            focused={node.id === focusedNodeId}
+            runtime={runtime}
+          />
         </group>
       ))}
     </>

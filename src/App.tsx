@@ -12,8 +12,7 @@ import { useCanvasGestures } from "./canvas/Gestures";
 import { CameraRig } from "./canvas/CameraRig";
 import { GroundCatcher } from "./canvas/GroundCatcher";
 import { GroundNodes } from "./canvas/GroundNodes";
-import { EdgeOverlay } from "./canvas/EdgeOverlay";
-import { InfoBar } from "./canvas/InfoBar";
+import { SceneEdges } from "./canvas/SceneEdges";
 
 function useViewport() {
   const [vp, setVp] = useState(() => ({
@@ -52,7 +51,10 @@ function GraphApp() {
 
   return (
     <RuntimeProvider runtime={runtime}>
-      <div className="graph-root">
+      <div
+        className="graph-root"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <div ref={canvasWrapRef} className="canvas-wrap">
           <Canvas
             orthographic
@@ -61,13 +63,12 @@ function GraphApp() {
             gl={{ antialias: true, alpha: true }}
           >
             <CameraRig />
+            <SceneEdges runtime={runtime} />
             <GroundCatcher runtime={runtime} />
             <GroundNodes runtime={runtime} viewport={viewport} />
           </Canvas>
         </div>
         <GridLayer runtime={runtime} viewport={viewport} />
-        <EdgeOverlay runtime={runtime} viewport={viewport} />
-        <InfoBar runtime={runtime} />
       </div>
     </RuntimeProvider>
   );
