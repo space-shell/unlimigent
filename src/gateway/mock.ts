@@ -75,6 +75,56 @@ export interface MockPaseoGatewayOptions {
   };
 }
 
+/** Deterministic large scenario for the Stage 2 device perf bar
+ * (20+ nodes, one agent flapping for live updates). */
+export function largeScenario(count = 24): MockScenario {
+  const workspaces: GatewayWorkspace[] = [];
+  const agents: GatewayAgent[] = [];
+  for (let i = 0; i < count; i++) {
+    const wksId = `wks_large_${i}`;
+    workspaces.push({
+      id: wksId,
+      title: `feature ${i}`,
+      projectId: "prj_unlimigent",
+      projectDisplayName: "unlimigent",
+      workspaceKind: i % 3 === 0 ? "worktree" : "local_checkout",
+      branch: `feat-${i}`,
+      remoteUrl: "git@github.com:space-shell/unlimigent.git",
+      pullRequest: i % 5 === 0 ? { title: `pr ${i}`, state: "open" } : null,
+      status: "active",
+    });
+    if (i % 2 === 0) {
+      agents.push({
+        id: `agt_large_${i}`,
+        provider: i % 4 === 0 ? "opencode" : "codex",
+        model: i % 4 === 0 ? "glm-5.3" : "gpt-5.5",
+        cwd: `/w/${i}`,
+        workspaceId: wksId,
+        status: i % 6 === 0 ? "attention" : "running",
+        title: `task ${i}`,
+      });
+    }
+  }
+  const snapshot: GatewaySnapshot = {
+    daemonHost: "jn-server",
+    workspaces,
+    agents,
+  };
+  return {
+    snapshot,
+    script: (snap) => {
+      const agent = snap.agents[0];
+      if (!agent) return [];
+      const next: GatewayAgent =
+        agent.status === "running"
+          ? { ...agent, status: "idle" }
+          : { ...agent, status: "running" };
+      snap.agents[0] = next;
+      return [{ kind: "agent-updated", agent: next }];
+    },
+  };
+}
+
 /** Emits daemon-shaped events from a scripted scenario. Deterministic with an
  * injected clock; drifts realistically with the default wall clock. */
 export class MockPaseoGateway implements PaseoGateway {

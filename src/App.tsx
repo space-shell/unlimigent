@@ -6,6 +6,7 @@ import { webglSupport } from "./diagnostics";
 import { readFlags } from "./flags";
 import { createRuntime, type Runtime } from "./app/runtime";
 import { RuntimeProvider } from "./app/RuntimeProvider";
+import { largeScenario, MockPaseoGateway } from "./gateway/mock";
 import { CameraRig } from "./canvas/CameraRig";
 import { NodeLayer } from "./canvas/NodeLayer";
 import { EdgeOverlay } from "./canvas/EdgeOverlay";
@@ -29,7 +30,13 @@ function useViewport() {
 function GraphApp() {
   const viewport = useViewport();
   const runtimeRef = useRef<Runtime | null>(null);
-  if (runtimeRef.current === null) runtimeRef.current = createRuntime();
+  if (runtimeRef.current === null) {
+    // ?large seeds a 24-node scenario for the device perf bar
+    const large = new URLSearchParams(globalThis.location.search).has("large");
+    runtimeRef.current = createRuntime({
+      gateway: new MockPaseoGateway(large ? { scenario: largeScenario() } : {}),
+    });
+  }
   const runtime = runtimeRef.current;
 
   return (
