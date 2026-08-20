@@ -28,6 +28,8 @@ export interface GraphNode {
   parentId: string | null;
   origin: "user" | "gateway";
   externalId: string | null;
+  /** True once the user has placed the node by hand — auto-arrange skips it. */
+  pinned?: boolean;
   meta: Record<string, string | number | boolean | null>;
   createdAt: number;
 }

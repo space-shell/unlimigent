@@ -6,14 +6,18 @@ export interface CameraState {
   x: number;
   y: number;
   zoom: number;
-  /** View rotation in radians. π/4 = isometric orientation. */
+  /** View azimuth in radians. π/4 = isometric orientation. */
   theta?: number;
+  /** Camera elevation in radians. atan(1/√2) = classic isometric. */
+  phi?: number;
 }
 
 export const ZOOM_MIN = 4;
 export const ZOOM_MAX = 256;
 export const ZOOM_DEFAULT = 48;
 export const THETA_ISO = Math.PI / 4;
+/** Classic isometric elevation: ground axes project at ±30° on screen. */
+export const PHI_ISO = Math.atan(1 / Math.SQRT2);
 
 export interface GraphState {
   nodes: Record<string, GraphNode>;
@@ -23,6 +27,7 @@ export interface GraphState {
 
   addNode: (init: Parameters<typeof createNode>[0]) => GraphNode;
   moveNode: (id: string, position: Vec2) => void;
+  pinNode: (id: string, pinned: boolean) => void;
   setNodeStatus: (id: string, status: GraphNode["status"]) => void;
   setNodeTitle: (id: string, title: string) => void;
   removeNode: (id: string) => void;
@@ -41,7 +46,7 @@ export function createGraphStore() {
     nodes: {},
     edges: {},
     focusedNodeId: null,
-    camera: { x: 0, y: 0, zoom: ZOOM_DEFAULT, theta: THETA_ISO },
+    camera: { x: 0, y: 0, zoom: ZOOM_DEFAULT, theta: THETA_ISO, phi: PHI_ISO },
 
     addNode: (init) => {
       const node = createNode(init);
@@ -61,6 +66,13 @@ export function createGraphStore() {
         const node = state.nodes[id];
         if (!node) return state;
         return { nodes: { ...state.nodes, [id]: { ...node, position } } };
+      }),
+
+    pinNode: (id, pinned) =>
+      set((state) => {
+        const node = state.nodes[id];
+        if (!node) return state;
+        return { nodes: { ...state.nodes, [id]: { ...node, pinned } } };
       }),
 
     setNodeStatus: (id, status) =>

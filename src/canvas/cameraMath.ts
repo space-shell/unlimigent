@@ -1,5 +1,5 @@
 import type { CameraState } from "../graph/store";
-import { ZOOM_MAX, ZOOM_MIN } from "../graph/store";
+import { PHI_ISO, ZOOM_MAX, ZOOM_MIN } from "../graph/store";
 
 export type { CameraState };
 export { ZOOM_MIN, ZOOM_MAX };
@@ -9,8 +9,29 @@ export interface Viewport {
   height: number;
 }
 
-/** Screen x grows right, screen y grows down; world x right, world y up.
- * The view is rotated by cam.theta (iso = π/4) before the y-flip. */
+/** 3D isometric projection. The world is the z=0 ground plane; the camera
+ * sits at azimuth theta / elevation phi looking at the camera target, up
+ * vector +z. Screen x grows right, screen y grows down.
+ *
+ * Basis (unit vectors in world space):
+ *   right r = (-sin θ, cos θ, 0)
+ *   up    u = (-cos θ sin φ, -sin θ sin φ, cos φ)
+ *
+ * A ground-plane point p screens as:
+ *   sx = w/2 + zoom · (p − target)·r
+ *   sy = h/2 − zoom · (p − target)·u
+ */
+
+function basis(cam: CameraState) {
+  const th = cam.theta ?? 0;
+  const ph = cam.phi ?? PHI_ISO;
+  return {
+    sinth: Math.sin(th),
+    costh: Math.cos(th),
+    sinph: Math.sin(ph),
+    cosph: Math.cos(ph),
+  };
+}
 
 export function worldToScreen(
   wx: number,
@@ -18,15 +39,32 @@ export function worldToScreen(
   cam: CameraState,
   vp: Viewport,
 ): { x: number; y: number } {
-  const th = cam.theta ?? 0;
-  const c = Math.cos(th);
-  const s = Math.sin(th);
-  const rx = wx - cam.x;
-  const ry = wy - cam.y;
+  const b = basis(cam);
+  const ex = wx - cam.x;
+  const ey = wy - cam.y;
   return {
-    x: vp.width / 2 + (rx * c - ry * s) * cam.zoom,
-    y: vp.height / 2 - (rx * s + ry * c) * cam.zoom,
+    x: vp.width / 2 + cam.zoom * (ex * -b.sinth + ey * b.costh),
+    y: vp.height / 2 - cam.zoom * (ex * -b.costh * b.sinph + ey * -b.sinth * b.sinph),
   };
+}
+
+/** Ground-plane delta for a screen-space pixel delta at a given zoom. */
+function deltaWorld(dsx: number, dsy: number, zoom: number, b: ReturnType<typeof basis>) {
+  const a = dsx / zoom;
+  const c = -dsy / zoom;
+  const det = b.sinph;
+  return {
+    x: (a * -b.sinph * b.sinth - b.costh * c) / det,
+    y: (-b.sinth * c - a * -b.sinph * b.costh) / det,
+  };
+}
+
+export function screenDeltaToWorld(
+  dxPx: number,
+  dyPx: number,
+  cam: CameraState,
+): { x: number; y: number } {
+  return deltaWorld(dxPx, dyPx, cam.zoom, basis(cam));
 }
 
 export function screenToWorld(
@@ -35,32 +73,8 @@ export function screenToWorld(
   cam: CameraState,
   vp: Viewport,
 ): { x: number; y: number } {
-  const th = cam.theta ?? 0;
-  const c = Math.cos(th);
-  const s = Math.sin(th);
-  const dx = (sx - vp.width / 2) / cam.zoom;
-  const dy = (vp.height / 2 - sy) / cam.zoom;
-  return {
-    x: cam.x + dx * c + dy * s,
-    y: cam.y - dx * s + dy * c,
-  };
-}
-
-/** Convert a screen-space pixel delta to a world-space delta. */
-export function screenDeltaToWorld(
-  dxPx: number,
-  dyPx: number,
-  cam: CameraState,
-): { x: number; y: number } {
-  const th = cam.theta ?? 0;
-  const c = Math.cos(th);
-  const s = Math.sin(th);
-  const dx = dxPx / cam.zoom;
-  const dy = -dyPx / cam.zoom;
-  return {
-    x: dx * c + dy * s,
-    y: -dx * s + dy * c,
-  };
+  const d = screenDeltaToWorld(sx - vp.width / 2, sy - vp.height / 2, cam);
+  return { x: cam.x + d.x, y: cam.y + d.y };
 }
 
 /** Pan by a screen-space pixel delta. */
@@ -85,17 +99,9 @@ export function zoomAt(
   if (zoom === cam.zoom) return cam;
   if (!originPx) return { ...cam, zoom };
   const w = screenToWorld(originPx.x, originPx.y, cam, vp);
-  const th = cam.theta ?? 0;
-  const c = Math.cos(th);
-  const s = Math.sin(th);
-  const dx = (originPx.x - vp.width / 2) / zoom;
-  const dy = (vp.height / 2 - originPx.y) / zoom;
-  return {
-    zoom,
-    theta: cam.theta,
-    x: w.x - (dx * c + dy * s),
-    y: w.y - (-dx * s + dy * c),
-  };
+  const b = basis(cam);
+  const d = deltaWorld(originPx.x - vp.width / 2, originPx.y - vp.height / 2, zoom, b);
+  return { zoom, theta: cam.theta, phi: cam.phi, x: w.x - d.x, y: w.y - d.y };
 }
 
 export interface ViewRect {
@@ -105,8 +111,7 @@ export interface ViewRect {
   bottom: number;
 }
 
-/** Axis-aligned viewport bounds in *rotated screen space* — compare against
- * worldToScreen output, not raw world coords. */
+/** Viewport bounds in screen space — compare against worldToScreen output. */
 export function viewRect(cam: CameraState, vp: Viewport): ViewRect {
   const hw = vp.width / 2;
   const hh = vp.height / 2;
