@@ -9,6 +9,7 @@ import { RuntimeProvider } from "./app/RuntimeProvider";
 import { largeScenario, MockPaseoGateway } from "./gateway/mock";
 import { FallbackGateway, RealPaseoGateway } from "./gateway/real";
 import { GridLayer } from "./canvas/GridLayer";
+import { NodeShadows } from "./canvas/NodeShadows";
 import { CameraRig } from "./canvas/CameraRig";
 import { NodeLayer } from "./canvas/NodeLayer";
 import { EdgeOverlay } from "./canvas/EdgeOverlay";
@@ -56,6 +57,7 @@ function GraphApp() {
         >
           <color attach="background" args={[tokens.paper]} />
           <CameraRig />
+          <NodeShadows />
           <NodeLayer runtime={runtime} viewport={viewport} />
         </Canvas>
         <GridLayer runtime={runtime} viewport={viewport} />
