@@ -1,5 +1,6 @@
 export type NodeKind =
   | "server"
+  | "project"
   | "workspace"
   | "worktree"
   | "agent"

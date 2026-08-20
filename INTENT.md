@@ -19,10 +19,33 @@ archive — onto a navigable spatial graph.
 
 ## The user journey
 
-A blank canvas. Add a server. Branching from it: folders, then worktrees. From
-worktrees: branches to GitHub, Slack, Linear nodes — the entire development process
-visible at a glance. Development complete, CI green, PRs merged, threads resolved:
-the branch is archived, decaying out of the graph.
+A blank canvas. Add a server. Branching from it: projects, then workspaces
+(local checkouts and worktrees as siblings). From workspaces: agent sessions —
+and later terminals, browsers, diffs, integration branches. Development
+complete, CI green, PRs merged, threads resolved: the branch is archived,
+decaying out of the graph.
+
+## Node ontology (verified against live daemon + paseo docs 2026-08-20)
+
+The graph mirrors Paseo's containment exactly — deletion and creation of nodes
+map 1:1 onto daemon lifecycle events:
+
+```
+server (daemon host)
+└── project                    projectId / projectDisplayName
+    └── workspace              isolation: local_checkout | worktree (SIBLINGS,
+        │                      never nested — a worktree does not require a
+        │                      local root; daemon-managed worktrees live under
+        │                      ~/.paseo/worktrees/)
+        └── session            agent sessions today; terminals / browsers /
+            │                  diffs post-MVP
+            └── sub-agents     agents run by an agent join the caller's
+                               workspace as sibling sessions
+```
+
+- Workspace archive → node is removed (archived entities are never displayed).
+- Project with no live workspaces → project node is removed.
+- Post-MVP session kinds (tools, files) attach under their workspace.
 
 ## Interaction ethos
 
