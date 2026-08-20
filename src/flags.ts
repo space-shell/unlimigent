@@ -11,13 +11,13 @@ export const FLAG_NAMES = [
 export type FlagName = (typeof FLAG_NAMES)[number];
 export type FlagState = Readonly<Record<FlagName, boolean>>;
 
-// Stage 1 (graph core) and Stage 2 (canvas + touch) verified complete; later
-// stages stay default-off until they clear the device bar.
+// Stages 1, 2 and the read-only half of 4 verified on device; later stages
+// stay default-off until they clear the device bar.
 const DEFAULTS: FlagState = {
   stage1: true,
   stage2: true,
   stage3: false,
-  stage4: false,
+  stage4: true,
   stage5: false,
   stage6: false,
   voice: false,

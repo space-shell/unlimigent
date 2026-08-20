@@ -21,8 +21,9 @@ describe("flags", () => {
     const defaults = flagDefaults();
     expect(defaults.stage1).toBe(true);
     expect(defaults.stage2).toBe(true);
+    expect(defaults.stage4).toBe(true);
     for (const [name, on] of Object.entries(defaults)) {
-      if (name !== "stage1" && name !== "stage2") expect(on).toBe(false);
+      if (!["stage1", "stage2", "stage4"].includes(name)) expect(on).toBe(false);
     }
   });
 
@@ -32,21 +33,21 @@ describe("flags", () => {
 
   it("persists an override and merges it over defaults", () => {
     const storage = memoryStorage();
-    setFlag("stage3", true, storage);
+    setFlag("stage5", true, storage);
     const flags = readFlags(storage);
-    expect(flags.stage3).toBe(true);
-    expect(flags.stage4).toBe(false);
+    expect(flags.stage5).toBe(true);
+    expect(flags.stage6).toBe(false);
   });
 
   it("ignores unknown or malformed persisted keys", () => {
     const storage = memoryStorage();
     storage.setItem(
       "unlimigent.flags",
-      JSON.stringify({ stage3: true, bogus: true, stage4: "not-a-bool" }),
+      JSON.stringify({ stage5: true, bogus: true, stage6: "not-a-bool" }),
     );
     const flags = readFlags(storage);
-    expect(flags.stage3).toBe(true);
-    expect(flags.stage4).toBe(false);
+    expect(flags.stage5).toBe(true);
+    expect(flags.stage6).toBe(false);
     expect("bogus" in flags).toBe(false);
   });
 
