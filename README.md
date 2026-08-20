@@ -41,8 +41,22 @@ npm run dev          # vite dev server, --host (LAN / adb reverse ready)
 
 Checks: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run build`.
 Device testing (pad on tailnet): `adb reverse tcp:5173 tcp:5173`, then open
-`http://localhost:5173/unlimigent/` on the pad. Daemon is reached directly over
-the tailnet at `ws://100.127.193.39:6767/ws` (binds tailscale, not loopback).
+`http://localhost:5173/unlimigent/` on the pad.
+
+### Connecting the pad to the daemon (one-time)
+
+The daemon rejects cross-origin browser WebSockets by default. Allow the dev
+origin on the machine running the daemon:
+
+```bash
+# add daemon.cors.allowedOrigins to ~/.paseo/config.json, then:
+paseo reload   # runtime-safe, no restart needed
+```
+
+The app then reaches `ws://100.127.193.39:6767/ws` directly over the tailnet
+(daemon binds the tailscale interface, not loopback — `adb reverse tcp:6767`
+forwards nothing). The GitHub Pages build cannot open `ws://` (mixed content)
+and falls back to mock data automatically.
 
 ## Deployment
 

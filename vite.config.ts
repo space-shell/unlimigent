@@ -15,6 +15,20 @@ export default defineConfig({
       ),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: "three", test: /node_modules[\\/](three|@react-three)/ },
+            { name: "paseo", test: /node_modules[\\/](@getpaseo|tweetnacl)/ },
+            { name: "elk", test: /node_modules[\\/]elkjs/ },
+            { name: "vendor", test: /node_modules/ },
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

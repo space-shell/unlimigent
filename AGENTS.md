@@ -46,7 +46,9 @@ first; they are the source of truth for what this project is and what is in scop
   via `adb reverse tcp:5173 tcp:5173` (secure context; dev server base path is
   `/unlimigent/`); daemon direct at `ws://100.127.193.39:6767/ws` — the daemon
   binds the tailscale interface, not loopback, so `adb reverse tcp:6767` forwards
-  nothing.
+  nothing. Cross-origin browser WS needs
+  `daemon.cors.allowedOrigins: ["http://localhost:5173"]` in `~/.paseo/config.json`
+  + `paseo reload` (already applied on jn-server 2026-08-20).
 - On-the-go testing: GitHub Pages deploy on push to main.
 
 ## Commands
