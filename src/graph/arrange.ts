@@ -6,10 +6,15 @@ const elk = new ELK();
 const LAYOUT_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "RIGHT",
-  "elk.spacing.nodeNode": "40",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "80",
-  "elk.nodeSize.minimum": "(220, 80)",
+  "elk.spacing.nodeNode": "0.6",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "1.6",
+  "elk.nodeSize.minimum": "(4, 1.5)",
 };
+
+/** Node footprint in world units — keep in sync with NODE_HALF_W/H in
+ * canvas/cameraMath.ts. */
+export const ELK_NODE_W = 4;
+export const ELK_NODE_H = 1.5;
 
 export interface ArrangeResult {
   moved: number;
@@ -28,8 +33,8 @@ export async function autoArrange(store: GraphStore): Promise<ArrangeResult> {
     layoutOptions: LAYOUT_OPTIONS,
     children: nodes.map((n) => ({
       id: n.id,
-      width: 220,
-      height: 80,
+      width: ELK_NODE_W,
+      height: ELK_NODE_H,
     })),
     edges: Object.values(state.edges).map((e) => ({
       id: e.id,

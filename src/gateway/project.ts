@@ -44,8 +44,8 @@ function upsertWorkspace(
     externalId: ws.id,
     status: workspaceStatus(ws),
     position: {
-      x: 260 + Math.cos(angle) * 320,
-      y: Math.sin(angle) * 260,
+      x: 5.5 + Math.cos(angle) * 3.5,
+      y: Math.sin(angle) * 3,
     },
     meta,
   });
@@ -80,10 +80,10 @@ function upsertAgent(store: GraphStore, agent: GatewayAgent): void {
     status: agentStatus(agent.status),
     position: parent
       ? {
-          x: parent.position.x + Math.cos(angle) * (240 + siblings.length * 30),
-          y: parent.position.y + 140 + Math.sin(angle) * 120,
+          x: parent.position.x + Math.cos(angle) * (2.5 + siblings.length * 0.4),
+          y: parent.position.y - 2.2 + Math.sin(angle) * 1.4,
         }
-      : { x: 0, y: 400 },
+      : { x: 0, y: -4 },
     meta: { provider: agent.provider, model: agent.model, cwd: agent.cwd },
   });
 }

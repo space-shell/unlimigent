@@ -8,6 +8,10 @@ export interface CameraState {
   zoom: number;
 }
 
+export const ZOOM_MIN = 4;
+export const ZOOM_MAX = 256;
+export const ZOOM_DEFAULT = 48;
+
 export interface GraphState {
   nodes: Record<string, GraphNode>;
   edges: Record<string, GraphEdge>;
@@ -34,7 +38,7 @@ export function createGraphStore() {
     nodes: {},
     edges: {},
     focusedNodeId: null,
-    camera: { x: 0, y: 0, zoom: 1 },
+    camera: { x: 0, y: 0, zoom: ZOOM_DEFAULT },
 
     addNode: (init) => {
       const node = createNode(init);
