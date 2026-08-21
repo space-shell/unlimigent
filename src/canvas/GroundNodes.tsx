@@ -239,6 +239,7 @@ function GroundPlate({
   const holdRef = useRef<HoldState>({ active: false, startAt: 0, done: false });
   const [fill, setFill] = useState(0);
   const lastTapRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -268,6 +269,13 @@ function GroundPlate({
   const cancelHold = () => {
     holdRef.current.active = false;
     holdRef.current.done = false;
+  };
+
+  const cancelTapTimer = () => {
+    if (tapTimerRef.current !== null) {
+      clearTimeout(tapTimerRef.current);
+      tapTimerRef.current = null;
+    }
   };
 
   const endDrag = () => {
@@ -313,8 +321,10 @@ function GroundPlate({
     if (drag && !drag.moved && !completedHold && elapsed < TAP_MS) {
       const now = performance.now();
       if (now - lastTapRef.current < DOUBLE_TAP_MS) {
-        // double tap: zoom until the plate fills the screen (bounded)
+        // double tap: cancel the pending single-tap activation and zoom
+        // until the plate fills the screen (bounded)
         lastTapRef.current = 0;
+        cancelTapTimer();
         const minDim = Math.min(
           globalThis.innerWidth ?? 800,
           globalThis.innerHeight ?? 600,
@@ -328,8 +338,14 @@ function GroundPlate({
           zoom: zoomTo,
         });
       } else {
+        // single tap (delayed so a second tap can cancel the focus tween —
+        // otherwise the tween moves the plate out from under the finger)
         lastTapRef.current = now;
-        runtime.bus.dispatch({ type: "node.activate", source: "touch", id: node.id });
+        cancelTapTimer();
+        tapTimerRef.current = setTimeout(() => {
+          tapTimerRef.current = null;
+          runtime.bus.dispatch({ type: "node.activate", source: "touch", id: node.id });
+        }, DOUBLE_TAP_MS);
       }
     }
     setFill(0);

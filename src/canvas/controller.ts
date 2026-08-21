@@ -3,7 +3,7 @@ import type { IntentBus } from "../intents/bus";
 import type { Intent } from "../intents/types";
 import { panBy, zoomAt, type Viewport } from "./cameraMath";
 
-const TWEEN_MS = 220;
+const TWEEN_MS = 320;
 
 export interface CameraControllerOptions {
   getViewport: () => Viewport;
@@ -68,12 +68,9 @@ export class CameraController {
         );
         break;
       case "camera.teleport":
-        this.cancelTween();
-        state.setCamera({
-          x: intent.target.x,
-          y: intent.target.y,
-          ...(intent.zoom !== undefined ? { zoom: intent.zoom } : {}),
-        });
+        // smooth, not instant — the ease-in-out tween covers position and
+        // (log-interpolated) zoom, so double-tap zoom in/out glides
+        this.tweenTo({ x: intent.target.x, y: intent.target.y, zoom: intent.zoom });
         break;
       case "camera.focus":
         if (intent.id === undefined) {

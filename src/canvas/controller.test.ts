@@ -121,6 +121,26 @@ describe("camera controller", () => {
     expect(store.getState().camera.y).toBeCloseTo(50);
   });
 
+  it("teleport tweens position and zoom instead of jumping", () => {
+    const { store, bus, advance, frames } = rig();
+    store.getState().setCamera({ x: 0, y: 0, zoom: 24 });
+    bus.dispatch({
+      type: "camera.teleport",
+      source: "touch",
+      target: { x: 30, y: -10 },
+      zoom: 200,
+    });
+    // not there immediately — the tween is running
+    const early = store.getState().camera;
+    expect(early.x).toBeLessThan(30);
+    expect(early.zoom).toBeLessThan(200);
+    expect(frames.length).toBeGreaterThan(0);
+    advance(60);
+    expect(store.getState().camera.x).toBeCloseTo(30);
+    expect(store.getState().camera.y).toBeCloseTo(-10);
+    expect(store.getState().camera.zoom).toBeCloseTo(200);
+  });
+
   it("camera.focus with no id clears focus", () => {
     const { store, bus } = rig();
     const node = store.getState().addNode({ kind: "agent", title: "a" });
