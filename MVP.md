@@ -48,18 +48,29 @@ commit when G3 exit criteria are met.
 
 De-risk the native pivot before it is load-bearing.
 
-- [ ] Devshell: godot_4 + gdtoolkit (gdlint/gdformat) + gdUnit4-capable
-  headless run in flake.nix; Node 22 stays until web retirement.
-- [ ] Godot project scaffold under `game/`: project.godot, directory layout
+- [x] Devshell: godot_4 + gdtoolkit (gdlint/gdformat) + minimal Android SDK
+  (androidenv.composeAndroidPackages) + jdk17 in flake.nix; Node 22 stays
+  until web retirement. Shellhook points Godot editor settings at the store
+  SDK.
+- [x] Godot project scaffold under `game/`: project.godot, directory layout
   (autoloads/, world/, ship/, gateway/, ui/), tokens theme, JetBrains Mono
-  asset (OFL), flags autoload.
+  asset (OFL), flags autoload. Headless boot verified 2026-09-10.
 - Spikes:
-  - [ ] **Ga** Android export from Nix — export templates, SDK, signing,
-    `adb install` onto the pad. Highest infra risk; timeboxed. Fallback:
-    export from a non-Nix host.
+  - [ ] **Ga** Android export from Nix — export pipeline verified
+    2026-09-10: official 4.7.1 templates installed manually at
+    `~/.local/share/godot/export_templates/` (1.2 GB, one-time); preset `pad`
+    (arm64-v8a only, internet permission, debug keystore at
+    `~/.android/debug.keystore`); `godot4 --headless --path game
+    --export-release pad` → 26 MB signed APK. **Remaining:** on-device
+    install + launch (pad disconnected during spike — first device session
+    closes this).
   - [ ] **Gb** Daemon WS from the pad build — `WebSocketPeer` →
     `ws://100.127.193.39:6767/ws`, subscribe parity with Spike 0a findings.
-    No CORS in native — verify the old dance is gone.
+    No CORS in native — verify the old dance is gone. **Capture items for
+    GAME_DESIGN.md (rulings 2026-09-10):** permission pending/cleared payload
+    shape; agent terminal status vocabulary; per-turn `activeTurn`
+    transitions on `agents.subscribe`; `schedules` subscribe + fire events;
+    workspace push-vs-poll on `workspaces.subscribe`.
   - [ ] **Gc** Input — gamepad (Android/SDL) and touch virtual joystick both
     verified on the pad.
 - Exit criteria: an empty isometric scene running on the pad via `adb install`,
@@ -142,6 +153,7 @@ metadata + MCP events per Spike 0a) · multi-daemon · web companion build
 | 0b | HTML-in-canvas on Cromite? | **Web-era; void at pivot.** Cromite Chromium 148 complex-text APIs present; WebGL per-site allow needed. Irrelevant to Godot. | 2026-08-20 |
 | 0c | STT engine options? | **Carries into G5.** Decision: transcribe.cpp sidecar on the daemon host (tailnet WS, 16 kHz PCM, committed/tentative partials); mini-model maps transcripts to intents/prompts. Native app keeps the same sidecar path. | 2026-08-20 |
 | 0d | Pages → local daemon connectivity? | **Web-era; void at pivot.** Mixed content blocked HTTPS→ws://; dev path was localhost:5173 + `daemon.cors.allowedOrigins`. Native has no CORS/mixed-content — Spike Gb verifies. | 2026-08-20 |
+| Ga | Godot Android export from Nix? | **Answered 2026-09-10 (pipeline).** Works with: flake `androidenv.composeAndroidPackages {}` (new nixpkgs API; old `composeAndroidSDK` gone) + `config.android_sdk.accept_license = true`; Godot needs the classic layout — use `<sdk>/libexec/android-sdk` as the editor `android_sdk_path`; jdk17 for apksigner; shellhook idempotently patches `~/.config/godot/editor_settings-*.tres`. Export templates 4.7.1 installed manually (1.2 GB tpz = zip, not tar) — not nix-managed. Preset `pad`: arm64-v8a only, non-custom gradle (no gradle/AGP needed), debug keystore signing. Output: 26 MB APK, `adb install` pending device connection. | 2026-09-10 |
 
 ## Feature flag policy
 
