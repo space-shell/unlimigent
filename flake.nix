@@ -1,5 +1,5 @@
 {
-  description = "unlimigent - spatial agent orchestration devshell";
+  description = "unlimigent - spatial agent orchestration game devshell";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -19,10 +19,13 @@
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            nodejs_22
+            godot_4
+            gdtoolkit_4
+            jetbrains-mono
+            nodejs_22 # legacy web app — removed at G3
           ];
           shellHook = ''
-            echo "unlimigent devshell: node $(node --version)"
+            echo "unlimigent devshell: godot $(godot4 --version | head -n1), gdlint $(gdlint --version 2>/dev/null | head -n1)"
           '';
         };
       });

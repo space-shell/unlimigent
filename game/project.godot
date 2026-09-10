@@ -1,0 +1,31 @@
+; Engine configuration file.
+; unlimigent — G0 scaffold. Android pad (OnePlus Pad 3) is the exit bar.
+
+config_version=5
+
+[application]
+
+config/name="unlimigent"
+run/main_scene="res://world/main.tscn"
+config/features=PackedStringArray("4.7")
+boot/first_run/always_ask=false
+
+[autoload]
+
+Flags="*res://autoloads/flags.gd"
+Tokens="*res://theme/tokens.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true

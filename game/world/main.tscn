@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3 uid="uid://unlimigent_main"]
+
+[ext_resource type="Script" path="res://world/main.gd" id="1_main"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+size = Vector2(40, 40)
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="Camera" type="Camera3D" parent="."]
+projection = 1
+size = 12.0
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.714065, 0.419715, 0.560695, 0, 0.800906, -0.598792, -0.70009, 0.427586, 0.572211, -8, 12, -8)
+shadow_enabled = true
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_ground")

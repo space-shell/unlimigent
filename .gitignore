@@ -9,3 +9,10 @@ dist-ssr/
 *.log
 .vite/
 *.tsbuildinfo
+
+# godot
+game/.godot/
+builds/
+*.apk
+*.aab
+export_templates/
