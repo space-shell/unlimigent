@@ -1,34 +1,44 @@
 # unlimigent — Intent
 
-A spatial user experience for the management and orchestration of AI agents.
+A native game for the management and orchestration of AI agents.
 
-unlimigent is a tablet-first, keyboard-less, infinite-canvas interface onto the
-[Paseo](https://github.com/getpaseo/paseo) daemon. It maps the full lifecycle of
-agent-driven development — servers, workspaces, worktrees, agents, integrations,
-archive — onto a navigable spatial graph.
+unlimigent is a Godot 4 game in which you pilot a small ship through a virtual
+world whose structures are your real agent fleet, mapped from the
+[Paseo](https://github.com/getpaseo/paseo) daemon. The ship is not a mode on
+top of a management UI — it **is** the interface. Servers, projects,
+workspaces, agents appear as entities in the world; you fly to them, interact,
+and earn points for managing them well.
 
 ## Product thesis
 
-- The spatial map **is** the product. Paseo owns orchestration and truth; unlimigent
-  owns the journey: seeing, navigating, and commanding agents in space.
-- The user journey is the focus of development. Layout and flow are fluid; everything
-  else exists to serve them. Development therefore follows a strict MVP with stages
-  tracked in [MVP.md](MVP.md).
-- Local-first: all unlimigent-specific data (graph, layout, settings) lives in the
-  browser. The daemon owns agent truth; the browser owns view truth.
+- The game **is** the product. Paseo owns orchestration and truth; unlimigent
+  owns the journey: piloting, encountering, and commanding agents in a virtual
+  world.
+- Points are earned only through real-world outcomes: successful management of
+  agents' inputs and outputs, derived from daemon events. Never simulated,
+  never farmable by presence.
+- Engagement mechanics are deliberate and welcome (streaks, decay, variable
+  rewards — the Candy Crush / Clash of Clans vocabulary), under one hard
+  constraint: **they must reinforce correct, timely management — not raw
+  session time.** Loss-aviation timers may only exist where the real workflow
+  has a real deadline. Points reward approval quality, not approval speed.
+- Local-first: all unlimigent-specific data (graph, layout, settings, score)
+  lives on-device under `user://`. The daemon owns agent truth; the game owns
+  view truth.
 
 ## The user journey
 
-A blank canvas. Add a server. Branching from it: projects, then workspaces
-(local checkouts and worktrees as siblings). From workspaces: agent sessions —
-and later terminals, browsers, diffs, integration branches. Development
-complete, CI green, PRs merged, threads resolved: the branch is archived,
-decaying out of the graph.
+Launch into the world. Structures rise from existing daemon state: servers,
+projects, workspaces, agent sessions. Fly the ship to an entity to inspect it;
+dock to act — launch an agent, approve a permission, watch it run. Work
+completes, PRs merge, threads resolve: the structure decays and sinks back
+into the plane. Points accrue for outcomes; rank and streaks reflect
+management quality over time.
 
 ## Node ontology (verified against live daemon + paseo docs 2026-08-20)
 
-The graph mirrors Paseo's containment exactly — deletion and creation of nodes
-map 1:1 onto daemon lifecycle events:
+The world mirrors Paseo's containment exactly — deletion and creation of
+entities map 1:1 onto daemon lifecycle events:
 
 ```
 server (daemon host)
@@ -38,60 +48,56 @@ server (daemon host)
         │                      local root; daemon-managed worktrees live under
         │                      ~/.paseo/worktrees/)
         └── session            agent sessions today; terminals / browsers /
-            │                  diffs post-MVP
-            └── sub-agents     agents run by an agent join the caller's
-                               workspace as sibling sessions
+             │                  diffs post-MVP
+             └── sub-agents     agents run by an agent join the caller's
+                                workspace as sibling sessions
 ```
 
-- Workspace archive → node is removed. Daemon "done" workspaces stay visible
+- Workspace archive → entity is removed. Daemon "done" workspaces stay visible
   (official client parity) shown with a done status; only genuinely archived
   entities (archivingAt / status "archived") are hidden.
-- Project with no live workspaces → project node is removed.
+- Project with no live workspaces → project entity is removed.
 - Post-MVP session kinds (tools, files) attach under their workspace.
 
 ## Interaction ethos
 
-**Primarily keyboard-less.** No feature may depend on a keyboard. Input sources:
+**Keyboard-less.** No feature may depend on a keyboard. Input sources:
 
 | Source | Role |
 |---|---|
-| Touch | Direct manipulation: place, drag, select, pinch |
-| Gamepad | Primary navigation: focus jumps, activation, camera |
+| Touch | Virtual joystick piloting, tap-to-target, dock interaction |
+| Gamepad | Primary piloting and navigation (Android/SDL) |
 | Gaze | XR input (post-MVP device) |
 | Speech | STT + mini-model interpretation: commands and prompt authoring |
 
-All sources normalize into one intent bus (`input → intent → action`). Speech enters
-the same bus: transcript → mini-model → intent(s), or agent prompt draft. Voice is
-the keyboard replacement for free-text entry.
+All sources normalize into one intent bus (`input → intent → action`), carried
+into Godot as a single autoload. Voice is the keyboard replacement for
+free-text entry.
 
-**Game-like, not gamified.** Jump navigation, screen-edge alerts, minimap, haptics —
-the feel of a game HUD without points, streaks, or stimulation mechanics.
+**Gamified, honestly.** Points, ranks, streaks, and engagement loops are part
+of the design language — but the scoring feed is the daemon's real event
+stream, and the loops are configured so that the player's incentive and the
+operator's duty point the same way. See GAME_DESIGN.md (living document,
+authored by the game-design agent) for the full catalog.
 
-## Design language — ASCII minimal, Muji feel
+## Design language — ASCII minimal, Nier hacking feel
 
-Modern minimal. Monospace-first, ASCII/box-drawing chrome, muted colors that pop
-only where state demands attention. Playful through restraint, not decoration.
+Reference: the hacking minigame in NieR: Automata — isometric, narrow palette,
+calm geometry that turns hostile only on state. Modern minimal, Muji feel:
+monospace-first, structure from typography and hairline rules, playful through
+restraint.
 
-- Typography: monospace everywhere (`ui-monospace`, JetBrains Mono / IBM Plex Mono
-  fallbacks). Text is interface, not ornament.
-- Chrome: structure from typography, spacing, and hairline rules. Box-drawing /
-  geometric glyphs (`─ ◇ ◉ ▲`) only as micro-accents — list markers, dividers,
-  relation hints. Never decorative ASCII borders or banner art. Flat. No
-  gradients; no shadows-as-depth except focus.
-- Color: token palette below. Neutrals carry the page; accents appear only on state
-  (running, attention, error, success, archive). Muted base, popping on demand.
-- Whitespace: generous. Muji: functional, unbranded, calm.
-- Canvas orientation: isometric — the world plane is viewed rotated 45°; the
-  plus-mark grid, manhattan (90°-bend) edges, and node cards all align to the
-  rotated axes. Nodes render as flat ground plates (90° about the plane
-  normal) with tiered LOD: plate and text scale separately across
-  dot/compact/full/detail tiers so plates stay screen-legible at every zoom.
-  Hold a plate ~600 ms to collapse its subtree (clockwise border fill).
-  On-device check 2026-08-20: verified readable and native-feeling.
-- On-device check 2026-08-20: palette and monospace typography confirmed good;
-  literal ASCII art reads as noise — excluded.
+- Typography: monospace everywhere (JetBrains Mono shipped as an asset).
+  Text is interface, not ornament.
+- Palette: the token set below, narrowed in play — neutrals carry the world;
+  accents appear only on state (running, attention, error, success, archive).
+  Flat. No gradients; no shadows-as-depth except focus.
+- World plane: isometric, rotated 45°, plus-mark grid, manhattan edges —
+  inherited from the web MVP's verified canvas orientation.
+- Ship: small, precise, readable at any zoom. The ship's light/trace uses one
+  accent.
 
-Design tokens (single source of truth; no raw hex outside the tokens module):
+Design tokens (single source of truth; no raw hex outside the Godot theme):
 
 | Token | Value | Use |
 |---|---|---|
@@ -104,32 +110,35 @@ Design tokens (single source of truth; no raw hex outside the tokens module):
 | `ochre` | `#C6A233` | Warnings / permissions |
 | `plum` | `#8E6E7E` | Archive / decay |
 
-Dark theme variants are deferred to Stage 6; tokens are defined once, themed later.
+Dark theme variants are deferred to G6; tokens are defined once, themed later.
 
 ## Fixed decisions
 
 | Decision | Choice |
 |---|---|
-| Renderer | three.js + react-three-fiber + drei, orthographic camera on a 2D plane |
-| Text/UI surfaces | drei `<Html>` (MVP) behind a `TextSurface` interface; HTMLTexture (HTML-in-canvas) adopted when device support lands (Spike 0b) |
-| State | Zustand, renderer-agnostic graph store, persisted via Dexie/IndexedDB; JSON export/import |
-| Backend | `@getpaseo/client` behind a single mockable `PaseoGateway`; the daemon is the only truth |
-| Layout | Manual placement + optional auto-arrange (elkjs) as a tool, never policy |
-| Input | Intent bus: touch + gamepad at MVP; gaze and speech enter the same bus |
-| Speech | transcribe.cpp (ggml, MIT) via a Node sidecar on the daemon host; browser AudioWorklet → 16 kHz PCM over tailnet WebSocket → committed/tentative partials; mini-model maps transcripts to intents/prompts. Fallbacks: native SpeechRecognition, whisper.cpp WASM |
-| Integrations | Derived from daemon data: workspace metadata first, MCP tool calls second, transcript parsing never as truth |
+| Engine | Godot 4 (MIT), GDScript, Android export; OnePlus Pad 3 is the exit bar |
+| Interface | The pilotable ship is the sole interface; replaced the web canvas 2026-09-10 |
+| State | Graph store as an engine-agnostic autoload (no scene dependencies), persisted under `user://` (JSON export/import) |
+| Backend | Direct `WebSocketPeer` to the daemon behind a single mockable `PaseoGateway` autoload; the daemon is the only truth |
+| Layout | Manual placement + optional auto-arrange as a tool, never policy |
+| Input | Intent bus autoload: touch + gamepad at MVP; speech enters the same bus (G5) |
+| Speech | transcribe.cpp sidecar on the daemon host over tailnet (browser-era Spike 0c decision carries over); mini-model maps transcripts to intents/prompts |
+| Scoring | Points derive only from daemon events; engagement mechanics constrained by the operator-attention rule |
+| Integrations | Derived from daemon data: workspace metadata first, MCP tool calls second |
 | Process | Trunk-based, feature-flagged, main always shippable |
 | License | Never closed source; AGPL-compatible |
 
 ## Target devices
 
-- Primary test device: OnePlus Pad 3, Cromite browser.
-- On-the-go testing: GitHub Pages (HTTPS) via `.github/workflows/deploy.yml`.
-- XR headset: future. Nothing in the architecture forecloses it; nothing in the MVP
-  depends on it.
+- Primary test device: OnePlus Pad 3 — Godot Android export, installed via adb.
+- Development host: NixOS desktop; desktop runs are dev-only and never count
+  as the exit bar.
+- XR headset: future. Nothing in the architecture forecloses it.
 
 ## What unlimigent is not
 
 - Not an orchestrator. The Paseo daemon owns agents, scheduling, and execution.
-- Not a chat client. Transcript inspection exists; conversation is not the surface.
-- Not auto-layouted. The user arranges meaning; the machine assists only on request.
+- Not a chat client. Transcript inspection exists; conversation is not the
+  surface.
+- Not a simulation. The world's state is the daemon's state; there is no
+  offline "fake fleet" gameplay.
