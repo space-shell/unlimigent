@@ -23,7 +23,7 @@ review.
 |---|---|---|---|
 | G0 | — | Foundations & spikes | ◐ in progress (Ga/Gb ✓; Gc touch ✓, gamepad events deferred to G2) |
 | G1 | `g1` | Core port (graph/bus/gateway in GDScript) | ✓ complete 2026-09-11 — 35 gdUnit cases green (store, projection incl. large scenario, snapshot round-trip, mock scripts); runtime wiring behind `g1`; real gateway code complete, live pad verification rides with G2 |
-| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ☐ not started |
+| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ◐ code complete 2026-09-11 — 43-entity world verified headless (connected HUD, mock large scenario); **device bar pending**: 60fps on pad, touch piloting, dock interaction, gamepad events (cooperative session) |
 | G3 | `g3` | In-world management — web parity bar | ☐ not started |
 | G4 | `g4` | Scoring engine (GAME_DESIGN.md phase 1) | ☐ not started |
 | G5 | `g5` | Voice & hands-free | ☐ not started |
