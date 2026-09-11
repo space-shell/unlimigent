@@ -90,8 +90,11 @@ De-risk the native pivot before it is load-bearing.
     scoreable; API-created agent on a known cwd spawned a NEW workspace —
     graph projection must not assume cwd→workspace uniqueness; `fetch_*`
     requests accept `subscribe:true` (unused by probe).
-  - [ ] **Gc** Input — gamepad (Android/SDL) and touch virtual joystick both
-    verified on the pad.
+  - [ ] **Gc** Input — touch **verified 2026-09-11** (tap/drag with
+    position, index, relative, velocity via adb injection). Gamepad:
+    controller paired and enumerated (`joypads=1`) but disconnected before
+    event capture (controller sleep); axis/button verification folds into
+    the G2 ship-input bar, which cannot ship without it.
 - Exit criteria: an empty isometric scene running on the pad via `adb install`,
   daemon WS connected from the pad build, gamepad + joystick events flowing
   into the intent bus.
