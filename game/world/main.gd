@@ -1,16 +1,26 @@
 extends Node3D
-## G0 boot scene: paper clear color, unshaded token materials, plus-mark grid.
-## Flat/unlit by design (INTENT.md design language); the ship lands in G2.
-## Everything visible is deterministic — no lighting dependency for the
-## on-device render check.
+## G0 boot scene grown into the G2 world: paper clear color, unshaded token
+## materials, plus-mark grid; behind `g2` — pilotable ship, world renderer,
+## approach-to-interact, iso follow camera, HUD. Everything visible is
+## deterministic — no lighting dependency for the on-device render check.
 
 const GRID_STEP := 4.0
 const GRID_EXTENT := 5  # 11x11 intersections
 const CROSS_ARM := 0.5
 const CROSS_THICKNESS := 0.06
 
+const HUD_FONT_PATH := "res://assets/fonts/JetBrainsMono-Regular.ttf"
+
+var _hud: Label
+var _hud_sub: Label
+var _ship_input: ShipInput
+var _camera_rig: CameraRig
+var _connection_state := "offline"
+
 @onready var camera: Camera3D = $Camera
 @onready var ground: MeshInstance3D = $Ground
+@onready var ship: Ship = $Ship
+@onready var interaction: Node3D = $Interaction
 
 
 func _ready() -> void:
@@ -20,6 +30,13 @@ func _ready() -> void:
 	_ground_material()
 	_grid()
 	_boot_diagnostics()
+	if Flags.is_on("g2"):
+		_wire_g2()
+	else:
+		ship.visible = false
+		ship.set_physics_process(false)
+		interaction.visible = false
+		interaction.set_physics_process(false)
 
 
 func _ground_material() -> void:
@@ -28,6 +45,56 @@ func _ground_material() -> void:
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.albedo_color = Color(Tokens.INK_FAINT, 0.12)
 	ground.material_override = mat
+
+
+func _wire_g2() -> void:
+	_ship_input = ShipInput.new()
+	add_child(_ship_input)
+	_camera_rig = CameraRig.new()
+	add_child(_camera_rig)
+	_camera_rig.setup(camera, ship)
+	_build_hud()
+	GraphStore.graph.changed.connect(_update_hud)
+	if Runtime.gateway != null:
+		Runtime.gateway.subscribe(_on_gateway_event)
+	_connection_state = Runtime.connection_state
+	_update_hud()
+
+
+func _build_hud() -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 5
+	add_child(canvas)
+	var font := load("res://assets/fonts/JetBrainsMono-Regular.ttf")
+	_hud = Label.new()
+	_hud.text = "unlimigent"
+	_hud.add_theme_font_override("font", font)
+	_hud.add_theme_font_size_override("font_size", 22)
+	_hud.modulate = Tokens.INK
+	_hud.position = Vector2(24, 18)
+	canvas.add_child(_hud)
+	_hud_sub = Label.new()
+	_hud_sub.add_theme_font_override("font", font)
+	_hud_sub.add_theme_font_size_override("font_size", 16)
+	_hud_sub.modulate = Tokens.INK_FAINT
+	_hud_sub.position = Vector2(24, 48)
+	_hud_sub.text = "left half: fly · right hold: dock"
+	canvas.add_child(_hud_sub)
+
+
+func _on_gateway_event(event: Dictionary) -> void:
+	if event.get("kind", "") == "connection":
+		_connection_state = String(event.get("state", "?"))
+		_update_hud()
+
+
+func _update_hud() -> void:
+	if _hud == null:
+		return
+	_hud.text = "unlimigent · %s" % _connection_state
+	_hud_sub.text = "%d entities · left: fly · right hold: dock" % GraphStore.graph.nodes.size()
+	if Flags.is_on("gb"):
+		print("hud: %s | %s" % [_hud.text, _hud_sub.text])
 
 
 func _grid() -> void:
