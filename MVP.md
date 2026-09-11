@@ -56,14 +56,16 @@ De-risk the native pivot before it is load-bearing.
   (autoloads/, world/, ship/, gateway/, ui/), tokens theme, JetBrains Mono
   asset (OFL), flags autoload. Headless boot verified 2026-09-10.
 - Spikes:
-  - [ ] **Ga** Android export from Nix — export pipeline verified
+  - [x] **Ga** Android export from Nix — export pipeline verified
     2026-09-10: official 4.7.1 templates installed manually at
     `~/.local/share/godot/export_templates/` (1.2 GB, one-time); preset `pad`
     (arm64-v8a only, internet permission, debug keystore at
     `~/.android/debug.keystore`); `godot4 --headless --path game
-    --export-release pad` → 26 MB signed APK. **Remaining:** on-device
-    install + launch (pad disconnected during spike — first device session
-    closes this).
+    --export-release pad` → 26 MB signed APK. **On-device verified 2026-09-11:
+    install + launch + render confirmed** (boot diagnostics in logcat; iso
+    plus-mark grid + token colors on screen; Vulkan mobile renderer healthy on
+    Adreno). First-pass black screen was an unlit shaded plane, not a renderer
+    fault — G0 scene is now flat/unshaded by design.
   - [ ] **Gb** Daemon WS from the pad build — `WebSocketPeer` →
     `ws://100.127.193.39:6767/ws`, subscribe parity with Spike 0a findings.
     No CORS in native — verify the old dance is gone. **Capture items for
