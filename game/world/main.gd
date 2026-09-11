@@ -67,3 +67,31 @@ func _boot_diagnostics() -> void:
 		flag_states.append("%s=%s" % [flag_name, Flags.is_on(flag_name)])
 	print("unlimigent G0 · flags: %s" % ", ".join(flag_states))
 	print("tokens: paper=%s ink=%s" % [Tokens.PAPER.to_html(), Tokens.INK.to_html()])
+	var joypads: Array = Input.get_connected_joypads()
+	print("gc: joypads=%d %s" % [joypads.size(), str(joypads)])
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not Flags.is_on("gb"):
+		return
+	if event is InputEventScreenTouch:
+		print("gc: touch pressed=%s pos=%s idx=%s" % [event.pressed, event.position, event.index])
+	elif event is InputEventScreenDrag:
+		print(
+			(
+				"gc: drag pos=%s rel=%s vel=%s idx=%s"
+				% [event.position, event.relative, event.velocity, event.index]
+			)
+		)
+	elif event is InputEventJoypadMotion:
+		var axis: InputEventJoypadMotion = event
+		if absf(axis.axis_value) > 0.15:
+			print("gc: joy axis=%s value=%.2f" % [axis.axis, axis.axis_value])
+	elif event is InputEventJoypadButton:
+		var btn: InputEventJoypadButton = event
+		print(
+			(
+				"gc: joybtn button=%s pressed=%s pressure=%.2f"
+				% [btn.button_index, btn.pressed, btn.pressure]
+			)
+		)
