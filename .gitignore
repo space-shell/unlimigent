@@ -16,3 +16,4 @@ builds/
 *.apk
 *.aab
 export_templates/
+game/reports/

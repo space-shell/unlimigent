@@ -63,8 +63,8 @@ All inside the devshell: `nix develop` first (or prefix with `nix develop -c`).
 |---|---|
 | Godot editor | `godot4 game/project.godot` (or `godot4 --path game`) |
 | Run (desktop dev) | `godot4 --path game` |
-| Tests (headless) | `godot4 --headless --path game -s addons/gdUnit4/bin/GdUnitCmd.tscn` (exact runner pinned in G0) |
-| Lint | `gdlint game` |
-| Format | `gdformat game` |
-| Android export | `godot4 --headless --path game --export-release pad` (presets land with Spike Ga) |
+| Tests (headless) | `godot4 --headless --path game -s addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode -a "tests"` |
+| Lint | `gdlint game/autoloads game/core game/gateway game/tests game/theme game/world` (vendored `game/addons` is excluded) |
+| Format | `gdformat <dirs>` (same scope as lint) |
+| Android export | `godot4 --headless --path game --export-release pad` |
 | Web (legacy, until G3) | `npm run dev` / `build` / `test` / `lint` / `typecheck` in repo root |

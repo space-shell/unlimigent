@@ -14,7 +14,14 @@ boot/first_run/always_ask=false
 
 Flags="*res://autoloads/flags.gd"
 Tokens="*res://theme/tokens.gd"
+GraphStore="*res://autoloads/graph_store.gd"
+IntentBus="*res://autoloads/intent_bus.gd"
+Runtime="*res://autoloads/runtime.gd"
 DaemonProbe="*res://gateway/daemon_probe.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
 
 [display]
 
