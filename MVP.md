@@ -66,13 +66,30 @@ De-risk the native pivot before it is load-bearing.
     plus-mark grid + token colors on screen; Vulkan mobile renderer healthy on
     Adreno). First-pass black screen was an unlit shaded plane, not a renderer
     fault — G0 scene is now flat/unshaded by design.
-  - [ ] **Gb** Daemon WS from the pad build — `WebSocketPeer` →
-    `ws://100.127.193.39:6767/ws`, subscribe parity with Spike 0a findings.
-    No CORS in native — verify the old dance is gone. **Capture items for
-    GAME_DESIGN.md (rulings 2026-09-10):** permission pending/cleared payload
-    shape; agent terminal status vocabulary; per-turn `activeTurn`
-    transitions on `agents.subscribe`; `schedules` subscribe + fire events;
-    workspace push-vs-poll on `workspaces.subscribe`.
+  - [x] **Gb** Daemon WS from the pad build — **verified 2026-09-11**:
+    `WebSocketPeer` connects to `ws://100.127.193.39:6767/ws` over tailnet,
+    hello → server_info, fetch agents/workspaces, and live `agent_stream`
+    pushes all confirmed on-device via `gateway/daemon_probe.gd` (gb flag).
+    No CORS in native — the web-era config dance is gone. **Wire protocol
+    (captured via `scripts/spike-gb.mjs` ws-tap):** `{"type":"hello",…}` →
+    `session/status` server_info; requests `{"type":"session","message":
+    {type,requestId,…}}`; responses `fetch_agents_response` /
+    `fetch_workspaces_response` `{entries:[{agent/project…}]}`;
+    keepalive `{"type":"ping"}`/`{"type":"pong"}`. **Push events observed:**
+    `agent_stream` (turn_started / turn_completed **with token usage** /
+    timeline items incl. tool_call), `agent_permission_request` /
+    `agent_permission_response` / `agent_permission_resolved` (protocol
+    confirmed in client source; live request not yet observed — API-created
+    agents auto-accept; G1 must trigger one via a permission-gated mode),
+    `providers_snapshot_update` (per-provider ready/unavailable),
+    `project.update`, `checkout_status_update`. **Other findings:** no
+    `schedules` namespace in client 0.4.0; agent payloads carry
+    `pendingPermissions[]`, `requiresAttention`, `attentionReason`,
+    `archivedAt`; `githubRuntime.pullRequest` includes `checks[]` +
+    `checksStatus` (server advertises `githubCheckDetails`) — CI-on-PRs IS
+    scoreable; API-created agent on a known cwd spawned a NEW workspace —
+    graph projection must not assume cwd→workspace uniqueness; `fetch_*`
+    requests accept `subscribe:true` (unused by probe).
   - [ ] **Gc** Input — gamepad (Android/SDL) and touch virtual joystick both
     verified on the pad.
 - Exit criteria: an empty isometric scene running on the pad via `adb install`,

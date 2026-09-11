@@ -99,8 +99,9 @@ rubber-stamp window rolling last 10 responses.
   outcome; acknowledged cost: model failures misattribute ×0.25, bounded).
 - Permission expiry windows — client 0.4.0 surfaces none; our 60-min flow
   floor is view-state bookkeeping, not a daemon deadline (open question Q1).
-- CI red/green — no CI namespace; `githubRuntime.pullRequest` carries merge
-  state only.
+- CI red/green — CI **on PRs** is available (`githubRuntime.pullRequest`
+  `checks[]` + `checksStatus`, server feature `githubCheckDetails`); CI
+  outside PRs has no signal.
 - Prompt quality, token usage, terminal output content, diff size — not in
   any Spike 0a payload.
 - Session time, flight time, docking counts — forbidden by constraint.
@@ -306,20 +307,33 @@ is rank + streaks only)
 - **Lighthouse** — restored a provider to ready by `refresh`, twice in a day.
 - **Full Rigging** — reached CAPTAIN.
 
-## Open questions — architect rulings 2026-09-10
+## Open questions — architect rulings 2026-09-10, updated by Spike Gb 2026-09-11
 
 1. **Permission windows.** 60-min flow floor approved as view-state
    bookkeeping. It is capped at 25% of an approval's max value and explicitly
    labeled non-daemon; re-anchor if the daemon ever surfaces real expiry.
-2. **Terminal status vocabulary.** Gb capture item — §2 turn/finish rows stay
-   provisional until Gb observes live terminal transitions.
-3. **Permission payload shape.** Gb capture item — requires a live agent
-   holding a permission.
+2. **Terminal status vocabulary.** **Answered by Gb:** `turn_started` /
+   `turn_completed` (with token usage) arrive as pushed `agent_stream`
+   events; agent payloads carry `status`, `activeTurn{turnId,startedAt}`,
+   `archivedAt`. §2 turn rows unblocked. Terminal agent states beyond
+   running/idle not yet observed live — keep `finished`/`error` provisional.
+3. **Permission payload shape.** **Protocol confirmed by Gb (client source):
+   push `agent_permission_request{agentId, request}`, response
+   `agent_permission_response{agentId, requestId, response}`, confirmation
+   `agent_permission_resolved{resolution}`; agent payload carries
+   `pendingPermissions[]` + `requiresAttention`/`attentionReason`. Live
+   request not observed — API-created agents auto-accept; G1 triggers one
+   via a permission-gated agent mode before §2 permission rows freeze.
 4. **Denial quality.** Neutral-only tiering for denials approved for phase 1.
    Vindicated-denial detection is speculative until reroute behavior is
    observed; revisit with Gb data.
-5. **Schedules.** Gb probe item — subscribe + observe fire events; if
-   confirmed, schedules become the phase-2 timer backbone.
-6. **PR transition delivery.** Payload-diffing is the design baseline; Gb
-   confirms push vs poll and the gateway projection (and point latency)
-   adjusts accordingly.
+5. **Schedules.** **Answered by Gb:** no `schedules` namespace in client
+   0.4.0 — phase-2 schedule-backed timers/scoring are unavailable through
+   this client. Re-probe on client upgrade.
+6. **PR transition delivery.** **Answered by Gb:** push-based streaming
+   confirmed (`agent_stream`, `project.update`, `checkout_status_update`,
+   `providers_snapshot_update`); PR state itself rides workspace entries
+   (`githubRuntime.pullRequest`) — diff successive fetches (or use the
+   `subscribe:true` fetch option) as the design baseline. Note: PR payloads
+   include `checks[]` + `checksStatus` — CI-on-PRs is scoreable after all
+   (§2's unscoreable CI line applies to CI outside PRs only).
