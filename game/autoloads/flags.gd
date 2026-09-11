@@ -13,6 +13,7 @@ const FLAG_NAMES: PackedStringArray = [
 	"g5",
 	"g6",
 	"voice",
+	"gb",
 ]
 
 var _state := _defaults()
@@ -52,6 +53,7 @@ func _defaults() -> Dictionary:
 		"g5": false,
 		"g6": false,
 		"voice": false,
+		"gb": false,
 	}
 
 

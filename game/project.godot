@@ -14,6 +14,7 @@ boot/first_run/always_ask=false
 
 Flags="*res://autoloads/flags.gd"
 Tokens="*res://theme/tokens.gd"
+DaemonProbe="*res://gateway/daemon_probe.gd"
 
 [display]
 
