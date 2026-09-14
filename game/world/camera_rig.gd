@@ -27,6 +27,10 @@ static func clamp_size(value: float) -> float:
 func setup(p_camera: Camera3D, p_ship: Ship) -> void:
 	camera = p_camera
 	ship = p_ship
+	# orientation locks once to the classic iso angle; from here on the rig
+	# only translates — no orbiting around the ship (pilot preference)
+	camera.position = ship.position + SHIP_OFFSET
+	camera.look_at(ship.position, Vector3.UP)
 	IntentBus.on("node.activate", _on_node_activate)
 	IntentBus.on(
 		"camera.zoom",
@@ -47,9 +51,8 @@ func _on_node_activate(intent: Dictionary) -> void:
 func _physics_process(delta: float) -> void:
 	if camera == null or ship == null:
 		return
-	if absf(_zoom_axis) > 0.01:
+	if absf(_zoom_axis) > 0.005:
 		camera.size = clamp_size(camera.size * exp(_zoom_axis * ZOOM_RATE * delta))
-		_zoom_axis = 0.0
 	var target := ship.position + SHIP_OFFSET
 	if _focus_target is String and Time.get_ticks_msec() / 1000.0 < _focus_until:
 		var node: Variant = GraphStore.graph.nodes.get(_focus_target)
@@ -59,4 +62,3 @@ func _physics_process(delta: float) -> void:
 		else:
 			_focus_target = null
 	camera.position = camera.position.lerp(target, FOLLOW_LERP * delta)
-	camera.look_at(Vector3(ship.position.x, 0, ship.position.z), Vector3.UP)

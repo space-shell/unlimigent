@@ -4,12 +4,6 @@ extends Node3D
 ## approach-to-interact, iso follow camera, HUD. Everything visible is
 ## deterministic — no lighting dependency for the on-device render check.
 
-const GRID_STEP := 4.0
-const GRID_EXTENT := 5  # 11x11 intersections
-const CROSS_ARM := 0.5
-const CROSS_THICKNESS := 0.02
-const GRID_Y := 0.012
-
 const HUD_FONT_PATH := "res://assets/fonts/JetBrainsMono-Regular.ttf"
 ## INTENT.md: no text below 14 px relative to screen DPI — HUD included.
 const HUD_MIN_PX := 16.0
@@ -32,7 +26,9 @@ func _ready() -> void:
 	camera.position = Vector3(17, 17, 17)
 	camera.look_at(Vector3.ZERO, Vector3.UP)
 	_ground_material()
-	_grid()
+	var grid := InfiniteGrid.new()
+	add_child(grid)
+	grid.setup(camera, ship if Flags.is_on("g2") else null)
 	_boot_diagnostics()
 	if Flags.is_on("g2"):
 		_wire_g2()
@@ -115,37 +111,6 @@ func _update_hud() -> void:
 	if _hud == null:
 		return
 	_hud.text = "unlimigent · %s" % _connection_state
-
-
-func _grid() -> void:
-	var arm := BoxMesh.new()
-	arm.size = Vector3(CROSS_ARM, CROSS_THICKNESS, CROSS_THICKNESS)
-	var bar := BoxMesh.new()
-	bar.size = Vector3(CROSS_THICKNESS, CROSS_THICKNESS, CROSS_ARM)
-
-	var grid_mat := StandardMaterial3D.new()
-	grid_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	grid_mat.albedo_color = Color(Tokens.INK_FAINT, 0.55)
-	var origin_mat := StandardMaterial3D.new()
-	origin_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	origin_mat.albedo_color = Tokens.INK
-
-	var y := GRID_Y
-	for ix in range(-GRID_EXTENT, GRID_EXTENT + 1):
-		for iz in range(-GRID_EXTENT, GRID_EXTENT + 1):
-			var is_origin := ix == 0 and iz == 0
-			var mat_used := origin_mat if is_origin else grid_mat
-			var pos := Vector3(ix * GRID_STEP, y, iz * GRID_STEP)
-			_cross(arm, bar, mat_used, pos)
-
-
-func _cross(arm_mesh: BoxMesh, bar_mesh: BoxMesh, mat: StandardMaterial3D, pos: Vector3) -> void:
-	for mesh in [arm_mesh, bar_mesh]:
-		var mi := MeshInstance3D.new()
-		mi.mesh = mesh
-		mi.material_override = mat
-		mi.position = pos
-		add_child(mi)
 
 
 func _boot_diagnostics() -> void:

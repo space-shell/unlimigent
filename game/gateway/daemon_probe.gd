@@ -64,7 +64,15 @@ func _on_frame(text: String) -> void:
 	if type == "session":
 		var inner: Dictionary = msg.get("message", {})
 		var payload: Dictionary = inner.get("payload", {})
-		print("gb: << session/%s %s" % [inner.get("type"), str(payload).substr(0, 900)])
+		# agent_stream timeline floods logcat (reasoning-token deltas) —
+		# summarize instead of printing every frame
+		if inner.get("type") == "agent_stream":
+			var event_type: String = payload.get("event", {}).get("type", "")
+			if event_type == "timeline":
+				return
+			print("gb: << agent_stream/%s agent=%s" % [event_type, payload.get("agentId", "?")])
+			return
+		print("gb: << session/%s %s" % [inner.get("type"), str(payload).substr(0, 400)])
 		if inner.get("type") == "status" and payload.get("status") == "server_info":
 			_send_fetched()
 	else:

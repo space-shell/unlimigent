@@ -45,17 +45,19 @@ func _build(text_value: String) -> void:
 	var border := MeshInstance3D.new()
 	border.mesh = _border_mesh
 	border.position = Vector3(0, 0, -0.03)
+	border.render_priority = -20
 	add_child(border)
 
 	_backing_mesh = QuadMesh.new()
 	var backing_mat := StandardMaterial3D.new()
 	backing_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	backing_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	backing_mat.albedo_color = Color(Tokens.PAPER, 0.94)
+	backing_mat.albedo_color = Color(Tokens.PAPER, 0.92)
 	_backing_mesh.material = backing_mat
 	var backing := MeshInstance3D.new()
 	backing.mesh = _backing_mesh
 	backing.position = Vector3(0, 0, -0.02)
+	backing.render_priority = -10
 	add_child(backing)
 
 	label = Label3D.new()
@@ -65,8 +67,10 @@ func _build(text_value: String) -> void:
 	label.no_depth_test = true
 	label.pixel_size = _pixel_size
 	label.outline_size = 0
+	label.double_sided = true
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.position = Vector3(0, 0, 0.0)
+	label.render_priority = 10
+	label.position = Vector3(0, 0, 0.02)
 	add_child(label)
 	set_text(text_value)
 

@@ -16,6 +16,7 @@ const DOCK_BUTTON := JOY_BUTTON_A
 var _joystick_active := false
 var _joystick_anchor := Vector2.ZERO
 var _gamepad_thrusting := false
+var _boost_sent := false
 var _camera: Camera3D
 
 var _stick_base: Panel
@@ -98,6 +99,15 @@ func _physics_process(_delta: float) -> void:
 		IntentBus.dispatch(
 			{"type": "ship.thrust", "source": "gamepad", "dir": {"x": 0.0, "y": 0.0}}
 		)
+	var right_x := Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	# continuous zoom: every physics frame carries the raw axis so the rig
+	# never misses an update
+	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": right_x})
+	var trigger := Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT)
+	if absf(trigger) > 0.02 or _boost_sent:
+		var value := maxf(0.0, trigger)
+		IntentBus.dispatch({"type": "ship.boost", "source": "gamepad", "value": value})
+		_boost_sent = value > 0.02
 
 
 ## Screen-space direction → ground-plane direction via the camera basis

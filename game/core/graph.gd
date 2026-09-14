@@ -43,6 +43,22 @@ var camera: Dictionary = _default_camera()
 
 var _id_counter := 0
 var _rng := RandomNumberGenerator.new()
+var _change_pending := false
+
+
+## Coalesce change notifications: a projection pass performing dozens of
+## mutations emits `changed` once, on the next frame — not once per mutation
+## (the per-mutation rebuild storm caused the ~3.5 s device stutter).
+func _notify() -> void:
+	if _change_pending:
+		return
+	_change_pending = true
+	_emit_changed.call_deferred()
+
+
+func _emit_changed() -> void:
+	_change_pending = false
+	changed.emit()
 
 
 func _init() -> void:
@@ -100,14 +116,14 @@ func create_node(init: Dictionary) -> Dictionary:
 		"createdAt": int(Time.get_unix_time_from_system() * 1000.0),
 	}
 	nodes[node.id] = node
-	changed.emit()
+	_notify()
 	return node
 
 
 func create_edge(from: String, to: String, kind: String) -> Dictionary:
 	var edge := {"id": make_id("edg"), "from": from, "to": to, "kind": kind}
 	edges[edge.id] = edge
-	changed.emit()
+	_notify()
 	return edge
 
 
@@ -124,7 +140,7 @@ func move_node(id: String, position: Dictionary) -> void:
 	if node == null:
 		return
 	node.position = {"x": position.get("x", 0.0), "y": position.get("y", 0.0)}
-	changed.emit()
+	_notify()
 
 
 func set_node_status(id: String, status: String) -> void:
@@ -132,7 +148,7 @@ func set_node_status(id: String, status: String) -> void:
 	if node == null:
 		return
 	node.status = status
-	changed.emit()
+	_notify()
 
 
 func set_node_title(id: String, title: String) -> void:
@@ -140,7 +156,7 @@ func set_node_title(id: String, title: String) -> void:
 	if node == null:
 		return
 	node.title = title
-	changed.emit()
+	_notify()
 
 
 func set_node_meta(id: String, meta: Dictionary) -> void:
@@ -148,7 +164,7 @@ func set_node_meta(id: String, meta: Dictionary) -> void:
 	if node == null:
 		return
 	node.meta = meta
-	changed.emit()
+	_notify()
 
 
 func remove_node(id: String) -> void:
@@ -165,7 +181,7 @@ func remove_node(id: String) -> void:
 	nodes.erase(id)
 	if focused_node_id == id:
 		focused_node_id = null
-	changed.emit()
+	_notify()
 
 
 func connect_nodes(from: String, to: String, kind: String) -> Variant:
@@ -194,7 +210,7 @@ func reparent(id: String, parent_id: Variant) -> bool:
 	if parent_id != null:
 		create_edge(parent_id, id, "contains")
 	node.parentId = parent_id
-	changed.emit()
+	_notify()
 	return nodes.get(id, {}).get("parentId", before) != before
 
 
@@ -205,7 +221,7 @@ func toggle_collapsed(id: String) -> void:
 		collapsed_ids.erase(id)
 	else:
 		collapsed_ids[id] = true
-	changed.emit()
+	_notify()
 
 
 func is_descendant_of(id: String, ancestor_id: String) -> bool:
@@ -231,14 +247,14 @@ func focus(id: Variant) -> void:
 	if id != null and id is String and not nodes.has(id):
 		return
 	focused_node_id = id
-	changed.emit()
+	_notify()
 
 
 func set_camera(partial: Dictionary) -> void:
 	for key in ["x", "y", "zoom", "theta", "phi"]:
 		if partial.has(key):
 			camera[key] = partial[key]
-	changed.emit()
+	_notify()
 
 
 func child_count(parent_id: String) -> int:
@@ -268,7 +284,7 @@ func restore(snap: Dictionary) -> void:
 	for id in snap.get("collapsedIds", []):
 		collapsed_ids[id] = true
 	focused_node_id = null
-	changed.emit()
+	_notify()
 
 
 func clear() -> void:
@@ -277,4 +293,4 @@ func clear() -> void:
 	collapsed_ids = {}
 	focused_node_id = null
 	camera = _default_camera()
-	changed.emit()
+	_notify()

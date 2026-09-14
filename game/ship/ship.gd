@@ -14,10 +14,13 @@ const SPAWN_POSITION := Vector2(4.0, 10.0)
 const TRAIL_LENGTH := 160
 const TRAIL_DROP_DIST := 0.18
 const TRAIL_MIN_SPEED := 0.3
+const BOOST_ACCEL_FACTOR := 1.9
+const BOOST_SPEED_FACTOR := 1.8
 
 var position_2d := SPAWN_POSITION
 var velocity := Vector2.ZERO
 var thrust_input := Vector2.ZERO
+var boost_level := 0.0
 
 var _body: MeshInstance3D
 var _trail_root: Node3D
@@ -25,6 +28,7 @@ var _trail: Array[MeshInstance3D] = []
 var _trail_mats: Array[StandardMaterial3D] = []
 var _last_drop := Vector2(INF, INF)
 var _off_thrust: Callable
+var _off_boost: Callable
 
 
 func _ready() -> void:
@@ -71,12 +75,27 @@ func _ready() -> void:
 		_trail.append(segment)
 		_trail_mats.append(tmat)
 	_off_thrust = IntentBus.on("ship.thrust", _on_thrust)
+	_off_boost = IntentBus.on("ship.boost", _on_boost)
 	position = Vector3(position_2d.x, SHIP_HEIGHT, position_2d.y)
 
 
 func _exit_tree() -> void:
 	if _off_thrust.is_valid():
 		_off_thrust.call()
+	if _off_boost.is_valid():
+		_off_boost.call()
+
+
+func _on_boost(intent: Dictionary) -> void:
+	boost_level = clampf(float(intent.get("value", 0.0)), 0.0, 1.0)
+
+
+func _max_speed() -> float:
+	return MAX_SPEED * (1.0 + BOOST_SPEED_FACTOR * boost_level)
+
+
+func _accel() -> float:
+	return ACCEL * (1.0 + BOOST_ACCEL_FACTOR * boost_level)
 
 
 func _on_thrust(intent: Dictionary) -> void:
@@ -86,9 +105,9 @@ func _on_thrust(intent: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	velocity += thrust_input.limit_length(1.0) * ACCEL * delta
+	velocity += thrust_input.limit_length(1.0) * _accel() * delta
 	velocity *= exp(-DRAG * delta)
-	velocity = velocity.limit_length(MAX_SPEED)
+	velocity = velocity.limit_length(_max_speed())
 	position_2d += velocity * delta
 	position = Vector3(position_2d.x, SHIP_HEIGHT, position_2d.y)
 	if velocity.length() > 0.4:
@@ -112,7 +131,10 @@ func _update_trail() -> void:
 	_trail[0].visible = true
 	for i in range(_trail.size()):
 		var t := float(i) / float(_trail.size())
-		_trail_mats[i].albedo_color = Color(Tokens.INDIGO, 0.6 * (1.0 - t))
+		var boost_brightness := 1.0 + 0.4 * boost_level
+		_trail_mats[i].albedo_color = Color(
+			Tokens.INDIGO, clampf(0.6 * boost_brightness, 0.0, 1.0) * (1.0 - t)
+		)
 		_trail[i].scale = Vector3.ONE * (1.0 - 0.7 * t)
 
 
