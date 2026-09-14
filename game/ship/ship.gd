@@ -9,12 +9,13 @@ extends Node3D
 const ACCEL := 14.0
 const DRAG := 2.6
 const MAX_SPEED := 9.0
-const SHIP_HEIGHT := 0.35
+const SHIP_HEIGHT := 0.4
+const SPAWN_POSITION := Vector2(4.0, 10.0)
 const TRAIL_LENGTH := 160
 const TRAIL_DROP_DIST := 0.18
 const TRAIL_MIN_SPEED := 0.3
 
-var position_2d := Vector2.ZERO
+var position_2d := SPAWN_POSITION
 var velocity := Vector2.ZERO
 var thrust_input := Vector2.ZERO
 
@@ -23,6 +24,7 @@ var _trail_root: Node3D
 var _trail: Array[MeshInstance3D] = []
 var _trail_mats: Array[StandardMaterial3D] = []
 var _last_drop := Vector2(INF, INF)
+var _off_thrust: Callable
 
 
 func _ready() -> void:
@@ -68,7 +70,13 @@ func _ready() -> void:
 		_trail_root.add_child(segment)
 		_trail.append(segment)
 		_trail_mats.append(tmat)
-	IntentBus.on("ship.thrust", _on_thrust)
+	_off_thrust = IntentBus.on("ship.thrust", _on_thrust)
+	position = Vector3(position_2d.x, SHIP_HEIGHT, position_2d.y)
+
+
+func _exit_tree() -> void:
+	if _off_thrust.is_valid():
+		_off_thrust.call()
 
 
 func _on_thrust(intent: Dictionary) -> void:
@@ -91,7 +99,7 @@ func _physics_process(delta: float) -> void:
 
 ## Breadcrumb drop at fixed distance intervals — the path shows exactly
 ## where the ship has flown, independent of speed.
-func _update_trail(_delta: float) -> void:
+func _update_trail() -> void:
 	if velocity.length() < TRAIL_MIN_SPEED:
 		return
 	if position_2d.distance_to(_last_drop) < TRAIL_DROP_DIST:

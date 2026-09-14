@@ -13,10 +13,22 @@ extends RefCounted
 ## always trusted (reparent on upsert).
 
 const GOLDEN_ANGLE := 2.399963
-const PROJECT_RADIUS := 24.0
+const PROJECT_RADIUS := 30.0
 const WORKSPACE_RADIUS := 9.0
 const AGENT_RADIUS := 4.0
-const ORPHAN_RADIUS := 34.0
+const ORPHAN_RADIUS := 40.0
+## Minimum clearance between plate edges — the overlap regression guard.
+const LAYOUT_CLEARANCE := 0.8
+## Node plate footprints (layout + rendering share this table).
+const LAYOUT_SIZE := {
+	"server": 2.4,
+	"project": 1.8,
+	"workspace": 1.6,
+	"worktree": 1.6,
+	"agent": 1.2,
+	"schedule": 1.2,
+	"integration": 1.2,
+}
 
 
 static func _agent_status(agent: Dictionary) -> String:
@@ -241,6 +253,67 @@ static func _gateway_agent_count(graph: Graph) -> int:
 	return n
 
 
+static func _children_of(graph: Graph, parent_id: String, kind_filter: String = "") -> Array:
+	var out: Array = []
+	for node_id in graph.nodes.keys():
+		var node: Dictionary = graph.nodes[node_id]
+		if node.parentId != parent_id:
+			continue
+		if kind_filter != "" and node.kind != kind_filter:
+			continue
+		out.append(node_id)
+	return out
+
+
+## Canonical deterministic layout for ALL gateway nodes — server central,
+## projects evenly ringed, workspaces fanned outward from their project,
+## agents ringed on their workspace. Runs after every structural change so
+## persisted graphs from older layouts self-heal on connect (regression:
+## stale user:// positions kept a cramped layout across releases).
+static func relayout_gateway(graph: Graph) -> void:
+	var server_id: Variant = _gateway_server_id(graph)
+	if server_id is not String:
+		return
+	graph.move_node(server_id, {"x": 0.0, "y": 0.0})
+	var projects := _children_of(graph, server_id)
+	var project_count := projects.size()
+	for i in range(project_count):
+		var project_angle := TAU * float(i) / float(maxi(project_count, 1))
+		var project_pos := Vector2(
+			cos(project_angle) * PROJECT_RADIUS, sin(project_angle) * PROJECT_RADIUS
+		)
+		graph.move_node(projects[i], {"x": project_pos.x, "y": project_pos.y})
+		var workspaces := _children_of(graph, projects[i])
+		var ws_count := workspaces.size()
+		for j in range(ws_count):
+			# fan around the outward direction, never toward the hub
+			var spread := TAU / maxf(float(ws_count) * 1.5, 4.0)
+			var angle := project_angle + (float(j) - float(ws_count - 1) / 2.0) * spread
+			var ws_pos := project_pos + Vector2(cos(angle), sin(angle)) * WORKSPACE_RADIUS
+			graph.move_node(workspaces[j], {"x": ws_pos.x, "y": ws_pos.y})
+			var agents := _children_of(graph, workspaces[j])
+			var agent_count := agents.size()
+			# agents fan around the workspace's outward direction — rings
+			# never reach back toward neighbouring clusters
+			var outward := atan2(ws_pos.y - project_pos.y, ws_pos.x - project_pos.x)
+			var agent_spread := TAU / maxf(float(agent_count) * 1.5, 3.0)
+			for k in range(agent_count):
+				var agent_angle: float = (
+					outward + (float(k) - float(agent_count - 1) / 2.0) * agent_spread
+				)
+				var agent_pos := ws_pos + Vector2(cos(agent_angle), sin(agent_angle)) * AGENT_RADIUS
+				graph.move_node(agents[k], {"x": agent_pos.x, "y": agent_pos.y})
+	# agents with no resolvable workspace orbit far out
+	var orphan_index := 0
+	for node_id in graph.nodes.keys():
+		var node: Dictionary = graph.nodes[node_id]
+		if node.kind != "agent" or node.origin != "gateway" or node.parentId != null:
+			continue
+		var angle := float(orphan_index) * GOLDEN_ANGLE
+		orphan_index += 1
+		graph.move_node(node_id, {"x": cos(angle) * ORPHAN_RADIUS, "y": sin(angle) * ORPHAN_RADIUS})
+
+
 ## Remove workspace/agent nodes whose entity disappeared or archived, and
 ## project nodes with no live workspaces left. Returns removal count.
 static func _prune_orphans(graph: Graph, snapshot: Dictionary) -> int:
@@ -283,44 +356,55 @@ static func _apply_snapshot(graph: Graph, snapshot: Dictionary) -> void:
 	for agent in snapshot.get("agents", []):
 		_upsert_agent(graph, agent)
 	_prune_orphans(graph, snapshot)
+	relayout_gateway(graph)
 
 
 static func project(graph: Graph, event: Dictionary) -> void:
 	var kind: String = event.get("kind", "")
 	if kind == "snapshot":
 		_apply_snapshot(graph, event.snapshot)
-	elif kind == "workspace-updated":
+		return
+	var structural := false
+	if kind == "workspace-updated":
 		var ws: Dictionary = event.workspace
 		# only genuinely archived workspaces are removed on update
 		if ws.get("status", "") == "archived":
 			var archived_node: Variant = _find_by_external_id(graph, ws.id)
 			if archived_node is Dictionary:
 				graph.remove_node(archived_node.id)
-			return
-		var server_id: Variant = _gateway_server_id(graph)
-		if server_id is String:
-			var project_id := _ensure_project(
-				graph,
-				server_id,
-				ws.projectId,
-				ws.get("projectDisplayName", ""),
-				ws.get("projectRootPath"),
-			)
-			_upsert_workspace(graph, project_id, ws)
+			structural = true
+		else:
+			var server_id: Variant = _gateway_server_id(graph)
+			if server_id is String:
+				var project_id := _ensure_project(
+					graph,
+					server_id,
+					ws.projectId,
+					ws.get("projectDisplayName", ""),
+					ws.get("projectRootPath"),
+				)
+				_upsert_workspace(graph, project_id, ws)
+				structural = true
 	elif kind == "workspace-archived":
 		var ws_node: Variant = _find_by_external_id(graph, event.id)
 		if ws_node is Dictionary:
 			graph.remove_node(ws_node.id)
+			structural = true
 	elif kind == "agent-updated":
 		var agent: Dictionary = event.agent
 		if agent.get("archived", false):
 			var archived_node: Variant = _find_by_external_id(graph, agent.id)
 			if archived_node is Dictionary:
 				graph.remove_node(archived_node.id)
+				structural = true
 		else:
 			_upsert_agent(graph, agent)
+			structural = true
 	elif kind == "agent-removed":
 		var agent_node: Variant = _find_by_external_id(graph, event.id)
 		if agent_node is Dictionary:
 			graph.remove_node(agent_node.id)
+			structural = true
+	if structural:
+		relayout_gateway(graph)
 	# "connection": nothing to project

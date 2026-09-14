@@ -73,8 +73,8 @@ func _build_hud() -> void:
 	var font := load(HUD_FONT_PATH)
 	var screen_h := get_viewport().get_visible_rect().size.y
 	var scale: float = maxf(1.0, screen_h / 800.0)
-	var title_px := int(22 * scale)
-	var sub_px := int(HUD_MIN_PX * scale)
+	var title_px := int(17 * scale)
+	var sub_px := int(13 * scale)
 	_hud = Label.new()
 	_hud.text = "unlimigent"
 	_hud.add_theme_font_override("font", font)

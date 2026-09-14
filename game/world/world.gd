@@ -17,15 +17,8 @@ const EDGE_Y := 0.04
 const LABEL_MIN_PX := 14.0
 const LABEL_FONT_SIZE := 40
 
-const KIND_SIZE := {
-	"server": 2.4,
-	"project": 1.8,
-	"workspace": 1.6,
-	"worktree": 1.6,
-	"agent": 1.2,
-	"schedule": 1.2,
-	"integration": 1.2,
-}
+## Footprints come from the layout table — plates and clearance agree.
+const KIND_SIZE := GraphProjection.LAYOUT_SIZE
 
 var _entities: Dictionary = {}
 var _edges: Dictionary = {}

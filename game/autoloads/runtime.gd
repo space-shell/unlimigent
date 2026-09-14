@@ -23,7 +23,7 @@ func start_mock() -> void:
 	_stop_gateway()
 	# g2 brings the world up on the large perf scenario (24 workspaces,
 	# 6 agents — the device bar); plain g1 uses the default scenario.
-	var scenario := (
+	var scenario: Dictionary = (
 		MockGateway.large_scenario() if Flags.is_on("g2") else MockGateway.default_scenario()
 	)
 	gateway = MockGateway.new(scenario)
