@@ -54,6 +54,12 @@ func _wire_g2() -> void:
 	_camera_rig = CameraRig.new()
 	add_child(_camera_rig)
 	_camera_rig.setup(camera, ship)
+	var compass := Compass.new()
+	compass.setup(ship, camera)
+	var canvas := CanvasLayer.new()
+	canvas.layer = 8
+	add_child(canvas)
+	canvas.add_child(compass)
 	_build_hud()
 	GraphStore.graph.changed.connect(_update_hud)
 	if Runtime.gateway != null:
@@ -83,7 +89,7 @@ func _build_hud() -> void:
 	_hud_sub.add_theme_font_size_override("font_size", sub_px)
 	_hud_sub.modulate = Tokens.INK_FAINT
 	_hud_sub.position = Vector2(24, 18 + title_px + 14)
-	_hud_sub.text = "left half: fly · right hold: dock"
+	_hud_sub.text = "left: fly · right stick: zoom · stick click: reset · RT: boost · right hold: dock"
 	canvas.add_child(_hud_sub)
 
 

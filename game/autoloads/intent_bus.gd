@@ -10,12 +10,14 @@ const TYPES: PackedStringArray = [
 	"ship.brake",
 	"ship.dock",
 	"ship.undock",
+	"ship.boost",
 	"nav.jump",
 	"nav.back",
 	"node.activate",
 	"node.context",
 	"camera.pan",
 	"camera.zoom",
+	"camera.zoom.reset",
 	"camera.focus",
 	"ui.menu",
 	"ui.back",
@@ -63,10 +65,13 @@ func dispatch(intent: Dictionary) -> void:
 		_log.pop_front()
 	var type_name: Variant = intent.get("type", "")
 	if _handlers.has(type_name):
-		for handler in (_handlers[type_name] as Array[Callable]).duplicate():
-			handler.call(intent)
+		var typed := (_handlers[type_name] as Array[Callable]).duplicate()
+		for handler in typed:
+			if handler.is_valid():
+				handler.call(intent)
 	for handler in _any_handlers.duplicate():
-		handler.call(intent)
+		if handler.is_valid():
+			handler.call(intent)
 
 
 func recent() -> Array:

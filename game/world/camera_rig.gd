@@ -8,18 +8,26 @@ const FOLLOW_LERP := 4.0
 const SHIP_OFFSET := Vector3(17, 17, 17)
 const FOCUS_OFFSET := Vector3(11, 11, 11)
 const FOCUS_RETURN_SEC := 4.0
-const SIZE_MIN := 7.0
-const SIZE_MAX := 48.0
-const ZOOM_RATE := 1.4
+## Ship hull ≈ 0.75 world units; ortho `size` is the full vertical extent.
+## 50% screen occupation → 1.5; 2% → 37.5 (pilot-specified clamps).
+const SIZE_MIN := 1.5
+const SIZE_MAX := 37.5
+const SIZE_DEFAULT := 20.0
+const ZOOM_RATE := 1.6
+const RESET_TWEEN_SEC := 0.25
 
 var camera: Camera3D
 var ship: Ship
 var _focus_target: Variant = null
 var _focus_until := 0.0
 var _zoom_axis := 0.0
+var _reset_tween: Tween
+var _off_activate: Callable
+var _off_zoom: Callable
+var _off_zoom_reset: Callable
 
 
-## Exponential right-stick zoom on the x-axis, clamped.
+## Exponential right-stick zoom, clamped to ship-relative screen fractions.
 static func clamp_size(value: float) -> float:
 	return clampf(value, SIZE_MIN, SIZE_MAX)
 
@@ -27,6 +35,7 @@ static func clamp_size(value: float) -> float:
 func setup(p_camera: Camera3D, p_ship: Ship) -> void:
 	camera = p_camera
 	ship = p_ship
+	camera.size = SIZE_DEFAULT
 	# orientation locks once to the classic iso angle; from here on the rig
 	# only translates — no orbiting around the ship (pilot preference)
 	camera.position = ship.position + SHIP_OFFSET
@@ -39,6 +48,15 @@ func setup(p_camera: Camera3D, p_ship: Ship) -> void:
 			if delta is float or delta is int:
 				_zoom_axis = float(delta)
 	)
+	IntentBus.on("camera.zoom.reset", func(_intent: Dictionary) -> void: _reset_zoom())
+
+
+func _reset_zoom() -> void:
+	if _reset_tween != null and _reset_tween.is_valid():
+		_reset_tween.kill()
+	_zoom_axis = 0.0
+	_reset_tween = create_tween()
+	_reset_tween.tween_property(camera, "size", SIZE_DEFAULT, RESET_TWEEN_SEC)
 
 
 func _on_node_activate(intent: Dictionary) -> void:

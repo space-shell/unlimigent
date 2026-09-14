@@ -1,16 +1,60 @@
-# Camera rig unit tests — zoom clamping (right-stick x-axis zoom).
+# Camera rig unit tests — ship-relative zoom clamps and reset.
 extends GdUnitTestSuite
 
 
+func _make_rig() -> Array:
+	var parent := Node3D.new()
+	auto_free(parent)
+	add_child(parent)
+	var camera := Camera3D.new()
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	parent.add_child(camera)
+	var ship := Ship.new()
+	parent.add_child(ship)
+	var rig := CameraRig.new()
+	parent.add_child(rig)
+	rig.setup(camera, ship)
+	return [rig, camera]
+
+
 func test_zoom_clamps_low() -> void:
-	assert_float(CameraRig.clamp_size(1.0)).is_equal(CameraRig.SIZE_MIN)
+	assert_float(CameraRig.clamp_size(0.1)).is_equal(CameraRig.SIZE_MIN)
 
 
 func test_zoom_clamps_high() -> void:
 	assert_float(CameraRig.clamp_size(500.0)).is_equal(CameraRig.SIZE_MAX)
 
 
-func test_zoom_passes_through_range() -> void:
-	assert_float(CameraRig.clamp_size(20.0)).is_equal(20.0)
-	assert_float(CameraRig.clamp_size(7.0)).is_equal(7.0)
-	assert_float(CameraRig.clamp_size(48.0)).is_equal(48.0)
+func test_clamps_derive_from_ship_screen_fractions() -> void:
+	# hull 0.75 units; ortho size is full vertical extent:
+	# 50% occupation -> 1.5, 2% -> 37.5
+	assert_float(CameraRig.SIZE_MIN).is_equal(1.5)
+	assert_float(CameraRig.SIZE_MAX).is_equal(37.5)
+
+
+func test_zoom_intent_moves_size() -> void:
+	var fixtures := _make_rig()
+	var rig: CameraRig = fixtures[0]
+	var camera: Camera3D = fixtures[1]
+	var before := camera.size
+	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": 1.0})
+	for i in range(30):
+		await get_tree().physics_frame
+	assert_float(camera.size).is_greater(before)
+	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": -1.0})
+	for i in range(30):
+		await get_tree().physics_frame
+	assert_float(camera.size).is_less(before)
+	rig._reset_zoom.call_deferred()
+	await get_tree().create_timer(CameraRig.RESET_TWEEN_SEC + 0.1).timeout
+	assert_float(camera.size).is_equal_approx(CameraRig.SIZE_DEFAULT, 0.01)
+	rig.queue_free()
+
+
+func test_compass_active_statuses() -> void:
+	assert_bool(Compass.is_active_status("running")).is_true()
+	assert_bool(Compass.is_active_status("attention")).is_true()
+	assert_bool(Compass.is_active_status("error")).is_true()
+	assert_bool(Compass.is_active_status("idle")).is_false()
+	assert_bool(Compass.is_active_status("done")).is_false()
+	assert_bool(Compass.is_active_status("archived")).is_false()

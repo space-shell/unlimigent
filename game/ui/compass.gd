@@ -1,0 +1,63 @@
+class_name Compass
+extends Control
+## Compass ring: a translucent circle (diameter = 50% of the min screen
+## dimension) centred on the ship's screen position. Active nodes outside
+## the ring highlight an arc segment on the circle in the node's direction,
+## colored by node state — off-screen awareness without leaving the ship.
+
+const RING_WIDTH := 3.0
+const HIGHLIGHT_WIDTH := 10.0
+const HIGHLIGHT_SPAN_DEG := 12.0
+const HIGHLIGHT_ALPHA := 0.85
+
+## Statuses that warrant directional attention.
+const ACTIVE_STATUSES: PackedStringArray = ["running", "attention", "error"]
+
+var ship: Ship
+var camera: Camera3D
+
+
+func setup(p_ship: Ship, p_camera: Camera3D) -> void:
+	ship = p_ship
+	camera = p_camera
+
+
+func _ready() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _process(_delta: float) -> void:
+	queue_redraw()
+
+
+static func is_active_status(status: String) -> bool:
+	return status in ACTIVE_STATUSES
+
+
+func _draw() -> void:
+	if ship == null or camera == null:
+		return
+	var center := camera.unproject_position(ship.position)
+	var radius := minf(size.x, size.y) * 0.25
+	draw_arc(center, radius, 0.0, TAU, 128, Color(Tokens.INK_FAINT, 0.18), RING_WIDTH)
+	var span := deg_to_rad(HIGHLIGHT_SPAN_DEG)
+	for node_id in GraphStore.graph.nodes.keys():
+		var node: Dictionary = GraphStore.graph.nodes[node_id]
+		if not is_active_status(String(node.get("status", ""))):
+			continue
+		var pos: Dictionary = node.position
+		var screen_pos := camera.unproject_position(Vector3(float(pos.x), 0.0, float(pos.y)))
+		if screen_pos.distance_to(center) <= radius:
+			continue
+		var angle := (screen_pos - center).angle()
+		var color := WorldRenderer.status_color(String(node.get("status", "")))
+		draw_arc(
+			center,
+			radius,
+			angle - span / 2.0,
+			angle + span / 2.0,
+			16,
+			Color(color, HIGHLIGHT_ALPHA),
+			HIGHLIGHT_WIDTH,
+		)

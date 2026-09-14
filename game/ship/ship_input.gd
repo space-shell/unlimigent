@@ -79,6 +79,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		IntentBus.dispatch(
 			{"type": "ship.dock" if event.pressed else "ship.undock", "source": "gamepad"}
 		)
+	elif event is InputEventJoypadButton and event.button_index == JOY_BUTTON_RIGHT_STICK:
+		if event.pressed:
+			IntentBus.dispatch({"type": "camera.zoom.reset", "source": "gamepad"})
 
 
 func _physics_process(_delta: float) -> void:
@@ -99,10 +102,10 @@ func _physics_process(_delta: float) -> void:
 		IntentBus.dispatch(
 			{"type": "ship.thrust", "source": "gamepad", "dir": {"x": 0.0, "y": 0.0}}
 		)
-	var right_x := Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
-	# continuous zoom: every physics frame carries the raw axis so the rig
-	# never misses an update
-	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": right_x})
+	var right_y := Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+	# vertical zoom (up = in): stick-up reports negative y; every physics
+	# frame carries the raw axis so the rig never misses an update
+	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": -right_y})
 	var trigger := Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT)
 	if absf(trigger) > 0.02 or _boost_sent:
 		var value := maxf(0.0, trigger)

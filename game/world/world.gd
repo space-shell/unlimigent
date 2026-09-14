@@ -49,7 +49,7 @@ func _ready() -> void:
 	_rebuild()
 
 
-func status_color(status: String) -> Color:
+static func status_color(status: String) -> Color:
 	match status:
 		"running":
 			return Tokens.INDIGO
@@ -209,7 +209,7 @@ func _rebuild_platforms() -> void:
 		var node: Dictionary = graph.nodes[node_id]
 		if node.kind != "project":
 			continue
-		var bounds := _subtree_bounds(node_id)
+		var bounds: Variant = _subtree_bounds(node_id)
 		if bounds == null:
 			continue
 		seen[node_id] = true
