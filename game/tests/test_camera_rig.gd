@@ -51,6 +51,19 @@ func test_zoom_intent_moves_size() -> void:
 	rig.queue_free()
 
 
+func test_docking_zooms_in_to_reading_level() -> void:
+	var fixtures := _make_rig()
+	var rig: CameraRig = fixtures[0]
+	var camera: Camera3D = fixtures[1]
+	GraphStore.graph.add_node({"kind": "agent", "title": "probe", "id": ""})
+	var node_id: String = GraphStore.graph.nodes.keys()[0]
+	IntentBus.dispatch({"type": "node.activate", "source": "system", "id": node_id})
+	await get_tree().create_timer(CameraRig.FOCUS_TWEEN_SEC + 0.15).timeout
+	assert_float(camera.size).is_equal_approx(CameraRig.FOCUS_SIZE, 0.2)
+	GraphStore.graph.clear()
+	rig.queue_free()
+
+
 func test_compass_active_statuses() -> void:
 	assert_bool(Compass.is_active_status("running")).is_true()
 	assert_bool(Compass.is_active_status("attention")).is_true()

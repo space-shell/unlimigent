@@ -22,9 +22,10 @@ review.
 | Stage | Flag | Focus | Status |
 |---|---|---|---|
 | G0 | — | Foundations & spikes | ◐ in progress (Ga/Gb ✓; Gc touch ✓, gamepad events deferred to G2) |
-| G1 | `g1` | Core port (graph/bus/gateway in GDScript) | ✓ complete 2026-09-11 — 35 gdUnit cases green (store, projection incl. large scenario, snapshot round-trip, mock scripts); runtime wiring behind `g1`; real gateway code complete, live pad verification rides with G2 |
-| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ◐ code complete 2026-09-11 — 43-entity world verified headless (connected HUD, mock large scenario); **device bar pending**: 60fps on pad, touch piloting, dock interaction, gamepad events (cooperative session) |
-| G3 | `g3` | In-world management — web parity bar | ☐ not started |
+| G1 | `g1` | Core port (graph/bus/gateway in GDScript) | ✓ complete 2026-09-11 — 35 gdUnit cases green (store, projection incl. large scenario, snapshot round-trip, mock scripts); runtime wiring behind `g1`; real gateway code complete, live pad verification rides with G3.a |
+| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ◐ device-verified: 60fps, piloting (touch+gamepad), dock+inspect, zoom, boost, compass — open polish items tracked in commit log |
+| G3.a | `g3a` | In-world management — **read** (real gateway, real names, live status, transcript/inspect readouts) | ☐ not started |
+| G3.b | `g3b` | In-world management — **write** (create agent, approve/deny permission, archive) — web parity bar; retires the web app | ☐ not started |
 | G4 | `g4` | Scoring engine (GAME_DESIGN.md phase 1) | ☐ not started |
 | G5 | `g5` | Voice & hands-free | ☐ not started |
 | G6 | `g6` | Polish & ship | ☐ not started |
@@ -127,14 +128,28 @@ The game feel. Nier hacking aesthetic on the token palette.
 - Exit criteria: on the pad — pilot to any entity and trigger inspect/focus,
   60fps with the 38-node scenario.
 
-## G3 — In-world management (web parity bar)
+## G3.a — In-world management, read (real gateway)
 
-- Create agent from the ship (prompt authoring via templates; free text lands
-  with G5 voice).
-- Permission approve/deny from the ship; live status streaming; reconnect.
-- Exit criteria: end-to-end on the pad — create agent, watch it run, approve a
-  permission, see it finish — zero keyboard. **Then: delete `src/`, retire the
-  web app in the same commit, update this table.**
+- Real `PaseoGateway` live on the pad (Spike Gb protocol): hello, fetch,
+  push-driven refetch, reconnect/backoff. Mock gateway demoted to
+  `?mock`-style debug path.
+- Real daemon names everywhere: agent titles, project display names,
+  workspace names (branch moves to meta if displaced from title).
+- Live status streaming visible in-world: agent running/attention/error
+  states update as the daemon pushes; PR state on workspace plates.
+- Docking readouts carry real data: provider/model, git, PR, last activity.
+- Exit criteria: on the pad — the ship's world mirrors the real daemon
+  within seconds of a change made elsewhere (Paseo app or terminal).
+
+## G3.b — In-world management, write — web parity bar
+
+- Create agent from the ship (prompt authoring via templates; free text
+  lands with G5 voice).
+- Permission approve/deny from the ship (`agent_permission_response`
+  protocol from Spike Gb); live status streaming; reconnect.
+- Exit criteria: end-to-end on the pad — create agent, watch it run,
+  approve a permission, see it finish — zero keyboard. **Then: delete
+  `src/`, retire the web app in the same commit, update this table.**
 
 ## G4 — Scoring engine
 

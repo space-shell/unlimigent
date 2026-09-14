@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://world/interaction.gd" id="4_interaction"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
-size = Vector2(40, 40)
+size = Vector2(400, 400)
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")

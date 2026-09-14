@@ -14,7 +14,10 @@ const SIZE_MIN := 1.5
 const SIZE_MAX := 37.5
 const SIZE_DEFAULT := 20.0
 const ZOOM_RATE := 1.6
-const RESET_TWEEN_SEC := 0.25
+const RESET_TWEEN_SEC := 0.4
+## Docking pulls in to a reading zoom; the previous zoom eases back after.
+const FOCUS_SIZE := 6.0
+const FOCUS_TWEEN_SEC := 0.5
 
 var camera: Camera3D
 var ship: Ship
@@ -25,6 +28,8 @@ var _reset_tween: Tween
 var _off_activate: Callable
 var _off_zoom: Callable
 var _off_zoom_reset: Callable
+var _focusing := false
+var _size_before_focus := SIZE_DEFAULT
 
 
 ## Exponential right-stick zoom, clamped to ship-relative screen fractions.
@@ -56,7 +61,17 @@ func _reset_zoom() -> void:
 		_reset_tween.kill()
 	_zoom_axis = 0.0
 	_reset_tween = create_tween()
+	_reset_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_reset_tween.tween_property(camera, "size", SIZE_DEFAULT, RESET_TWEEN_SEC)
+
+
+func _zoom_to(target: float, duration: float) -> void:
+	if _reset_tween != null and _reset_tween.is_valid():
+		_reset_tween.kill()
+	_zoom_axis = 0.0
+	_reset_tween = create_tween()
+	_reset_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_reset_tween.tween_property(camera, "size", clamp_size(target), duration)
 
 
 func _on_node_activate(intent: Dictionary) -> void:
@@ -64,12 +79,28 @@ func _on_node_activate(intent: Dictionary) -> void:
 	if id is String and GraphStore.graph.nodes.has(id):
 		_focus_target = id
 		_focus_until = Time.get_ticks_msec() / 1000.0 + FOCUS_RETURN_SEC
+		if not _focusing:
+			_focusing = true
+			_size_before_focus = camera.size
+		_zoom_to(FOCUS_SIZE, FOCUS_TWEEN_SEC)
+
+
+func _end_focus() -> void:
+	_focus_target = null
+	_focusing = false
+	_zoom_to(_size_before_focus, FOCUS_TWEEN_SEC)
 
 
 func _physics_process(delta: float) -> void:
 	if camera == null or ship == null:
 		return
 	if absf(_zoom_axis) > 0.005:
+		if _reset_tween != null and _reset_tween.is_valid():
+			_reset_tween.kill()
+		if _focusing:
+			# manual zoom takes over from the focus pull
+			_focusing = false
+			_focus_target = null
 		camera.size = clamp_size(camera.size * exp(_zoom_axis * ZOOM_RATE * delta))
 	var target := ship.position + SHIP_OFFSET
 	if _focus_target is String and Time.get_ticks_msec() / 1000.0 < _focus_until:
@@ -79,4 +110,6 @@ func _physics_process(delta: float) -> void:
 			target = Vector3(float(pos.x), 0.0, float(pos.y)) + FOCUS_OFFSET
 		else:
 			_focus_target = null
+	elif _focusing:
+		_end_focus()
 	camera.position = camera.position.lerp(target, FOLLOW_LERP * delta)

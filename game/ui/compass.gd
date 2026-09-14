@@ -5,10 +5,11 @@ extends Control
 ## the ring highlight an arc segment on the circle in the node's direction,
 ## colored by node state — off-screen awareness without leaving the ship.
 
-const RING_WIDTH := 3.0
-const HIGHLIGHT_WIDTH := 10.0
+const RING_WIDTH := 4.0
+const RING_ALPHA := 0.4
+const HIGHLIGHT_WIDTH := 14.0
 const HIGHLIGHT_SPAN_DEG := 12.0
-const HIGHLIGHT_ALPHA := 0.85
+const HIGHLIGHT_ALPHA := 0.9
 
 ## Statuses that warrant directional attention.
 const ACTIVE_STATUSES: PackedStringArray = ["running", "attention", "error"]
@@ -23,8 +24,19 @@ func setup(p_ship: Ship, p_camera: Camera3D) -> void:
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_resize_to_viewport()
+	var viewport := get_viewport()
+	if viewport != null:
+		viewport.size_changed.connect(_resize_to_viewport)
+
+
+func _resize_to_viewport() -> void:
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	size = viewport.get_visible_rect().size
+	position = Vector2.ZERO
 
 
 func _process(_delta: float) -> void:
@@ -36,11 +48,15 @@ static func is_active_status(status: String) -> bool:
 
 
 func _draw() -> void:
-	if ship == null or camera == null:
+	if ship == null or camera == null or not camera.is_inside_tree():
 		return
 	var center := camera.unproject_position(ship.position)
 	var radius := minf(size.x, size.y) * 0.25
-	draw_arc(center, radius, 0.0, TAU, 128, Color(Tokens.INK_FAINT, 0.18), RING_WIDTH)
+	if radius < 4.0:
+		return
+	# translucent band: fill + crisp edges
+	draw_circle(center, radius, Color(Tokens.INK_FAINT, 0.05))
+	draw_arc(center, radius, 0.0, TAU, 128, Color(Tokens.INK_FAINT, RING_ALPHA), RING_WIDTH)
 	var span := deg_to_rad(HIGHLIGHT_SPAN_DEG)
 	for node_id in GraphStore.graph.nodes.keys():
 		var node: Dictionary = GraphStore.graph.nodes[node_id]

@@ -48,7 +48,8 @@ func _defaults() -> Dictionary:
 	return {
 		"g1": false,
 		"g2": false,
-		"g3": false,
+		"g3a": false,
+		"g3b": false,
 		"g4": false,
 		"g5": false,
 		"g6": false,

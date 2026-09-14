@@ -103,9 +103,10 @@ func _physics_process(_delta: float) -> void:
 			{"type": "ship.thrust", "source": "gamepad", "dir": {"x": 0.0, "y": 0.0}}
 		)
 	var right_y := Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
-	# vertical zoom (up = in): stick-up reports negative y; every physics
-	# frame carries the raw axis so the rig never misses an update
-	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": -right_y})
+	# vertical zoom (up = zoom in): stick-up reports negative y and drives
+	# the exponential zoom directly; every physics frame carries the raw
+	# axis so the rig never misses an update
+	IntentBus.dispatch({"type": "camera.zoom", "source": "gamepad", "delta": right_y})
 	var trigger := Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT)
 	if absf(trigger) > 0.02 or _boost_sent:
 		var value := maxf(0.0, trigger)
