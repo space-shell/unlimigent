@@ -88,18 +88,12 @@ func _label_pixel_size() -> float:
 	return maxf(0.0035, (LABEL_MIN_PX * world_per_px) / LABEL_FONT_SIZE)
 
 
-func _make_label(text: String, color: Color) -> Label3D:
-	var label := Label3D.new()
-	label.text = text
-	label.font = _label_font
-	label.font_size = LABEL_FONT_SIZE
-	label.modulate = color
-	label.no_depth_test = true
-	label.pixel_size = _label_pixel_size()
-	label.outline_size = 0
-	# zy-plane: standing in the world, facing +X (toward the iso camera)
-	label.rotation_degrees = Vector3(0, 90, 0)
-	return label
+## Standing text card on the zy plane at the plate's camera-side edge.
+func _make_card(text_value: String, color: Color) -> TextCard:
+	var card := TextCard.create(
+		text_value, _label_font, LABEL_FONT_SIZE, color, _label_pixel_size()
+	)
+	return card
 
 
 func _rebuild() -> void:
@@ -133,10 +127,10 @@ func _create_entity(node: Dictionary) -> Dictionary:
 	root.add_child(outline)
 	var fill := _plate(size - 0.14, 0.05, _status_mats[node.status], PLATE_HEIGHT + 0.005)
 	root.add_child(fill)
-	var label := _make_label(_label_text(node), Tokens.INK)
-	label.position = Vector3(size / 2.0 + 0.3, 0.35, 0.0)
-	root.add_child(label)
-	var entity := {"root": root, "fill": fill, "label": label, "id": node.id}
+	var card := _make_card(_label_text(node), Tokens.INK)
+	card.position = Vector3(0, 0.35, size / 2.0 + 0.4)
+	root.add_child(card)
+	var entity := {"root": root, "fill": fill, "card": card, "id": node.id}
 	_update_entity(entity, node)
 	return entity
 
@@ -145,7 +139,7 @@ func _update_entity(entity: Dictionary, node: Dictionary) -> void:
 	var pos: Dictionary = node.position
 	entity.root.position = Vector3(float(pos.x), 0.0, float(pos.y))
 	entity.fill.material_override = _status_mats[node.status]
-	entity.label.text = _label_text(node)
+	entity.card.set_text(_label_text(node))
 
 
 func _plate(size: float, height: float, mat: StandardMaterial3D, y_offset: float) -> MeshInstance3D:
@@ -241,7 +235,7 @@ func _rebuild_platforms() -> void:
 		quad.mesh = mesh
 		quad.position = Vector3(bounds.center.x, PLATFORM_Y, bounds.center.y)
 		root.add_child(quad)
-		var label := _make_label(String(node.get("title", "")), Tokens.INK_FAINT)
+		var label := _make_card(String(node.get("title", "")), Tokens.INK_FAINT)
 		label.position = Vector3(bounds.min.x - PLATFORM_MARGIN, 0.3, bounds.center.y)
 		root.add_child(label)
 		_platforms[node_id] = {"root": root}
@@ -281,3 +275,10 @@ func entity_world_pos(node_id: String) -> Variant:
 	if entity is Dictionary:
 		return entity.root.position
 	return null
+
+
+func node_plate_size(node_id: String) -> float:
+	var node: Variant = GraphStore.graph.nodes.get(node_id)
+	if node is Dictionary:
+		return KIND_SIZE.get(String(node.kind), 1.2)
+	return 1.2

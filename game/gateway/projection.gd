@@ -13,9 +13,10 @@ extends RefCounted
 ## always trusted (reparent on upsert).
 
 const GOLDEN_ANGLE := 2.399963
-const PROJECT_RADIUS := 15.0
-const WORKSPACE_RADIUS := 6.0
-const AGENT_RADIUS := 2.8
+const PROJECT_RADIUS := 24.0
+const WORKSPACE_RADIUS := 9.0
+const AGENT_RADIUS := 4.0
+const ORPHAN_RADIUS := 34.0
 
 
 static func _agent_status(agent: Dictionary) -> String:
@@ -196,7 +197,7 @@ static func _upsert_agent(graph: Graph, agent: Dictionary) -> bool:
 		return reparented
 
 	var parent_id: Variant = parent.id if parent is Dictionary else null
-	var position: Dictionary = {"x": 4.0, "y": -12.0}
+	var position: Dictionary
 	if parent is Dictionary:
 		var parent_pos: Dictionary = parent.position
 		var i := graph.child_count(parent.id)
@@ -204,6 +205,14 @@ static func _upsert_agent(graph: Graph, agent: Dictionary) -> bool:
 		position = {
 			"x": float(parent_pos.x) + cos(angle) * AGENT_RADIUS,
 			"y": float(parent_pos.y) + sin(angle) * AGENT_RADIUS,
+		}
+	else:
+		# no known workspace — orbit the server hub far out
+		var count := _gateway_agent_count(graph)
+		var angle := count * GOLDEN_ANGLE
+		position = {
+			"x": cos(angle) * ORPHAN_RADIUS,
+			"y": sin(angle) * ORPHAN_RADIUS,
 		}
 	(
 		graph
@@ -221,6 +230,15 @@ static func _upsert_agent(graph: Graph, agent: Dictionary) -> bool:
 		)
 	)
 	return true
+
+
+static func _gateway_agent_count(graph: Graph) -> int:
+	var n := 0
+	for node_id in graph.nodes.keys():
+		var node: Dictionary = graph.nodes[node_id]
+		if node.kind == "agent" and node.origin == "gateway":
+			n += 1
+	return n
 
 
 ## Remove workspace/agent nodes whose entity disappeared or archived, and

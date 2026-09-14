@@ -5,8 +5,8 @@ extends Node
 ## consumer — this rig computes target offsets only.
 
 const FOLLOW_LERP := 4.0
-const SHIP_OFFSET := Vector3(10, 10, 10)
-const FOCUS_OFFSET := Vector3(6, 6, 6)
+const SHIP_OFFSET := Vector3(17, 17, 17)
+const FOCUS_OFFSET := Vector3(11, 11, 11)
 const FOCUS_RETURN_SEC := 4.0
 
 var camera: Camera3D

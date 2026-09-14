@@ -29,7 +29,7 @@ var _fps_accum := 0.0
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Tokens.PAPER)
-	camera.position = Vector3(10, 10, 10)
+	camera.position = Vector3(17, 17, 17)
 	camera.look_at(Vector3.ZERO, Vector3.UP)
 	_ground_material()
 	_grid()
