@@ -25,13 +25,24 @@ func _ready() -> void:
 	_body = MeshInstance3D.new()
 	var mesh := PrismMesh.new()
 	mesh.size = Vector3(0.55, 0.18, 0.75)
+	# the ship alone is shaded — the only physical object in a flat world
 	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Tokens.INK
+	mat.roughness = 0.8
 	mesh.material = mat
 	_body.mesh = mesh
 	_body.rotation_degrees = Vector3(0, 180, 0)
 	add_child(_body)
+	var keel := MeshInstance3D.new()
+	var keel_mesh := BoxMesh.new()
+	keel_mesh.size = Vector3(0.1, 0.05, 0.6)
+	var keel_mat := StandardMaterial3D.new()
+	keel_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	keel_mat.albedo_color = Tokens.INDIGO
+	keel_mesh.material = keel_mat
+	keel.mesh = keel_mesh
+	keel.position = Vector3(0, 0.12, 0)
+	_body.add_child(keel)
 	for i in range(TRAIL_LENGTH):
 		var segment := MeshInstance3D.new()
 		var quad := QuadMesh.new()

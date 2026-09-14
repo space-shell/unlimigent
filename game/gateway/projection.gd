@@ -1,15 +1,21 @@
 class_name GraphProjection
 extends RefCounted
 ## Projection: daemon truth → graph nodes. Port of src/gateway/project.ts
-## minus elkjs re-flow — incremental placement is ported 1:1; the full
-## auto-arrange tool lands with the G2 world (ship-era layout is designed
-## around piloting, not layered graph layout).
+## with the G2 hub layout (INTENT.md world canon): server central, projects
+## on a golden-angle ring, workspaces ringed on their project, agents ringed
+## on their workspace — spacing chosen against plate sizes so nothing
+## overlaps. The elkjs re-flow stays retired; this placement is the layout.
 ##
 ## Hierarchy mirrors Paseo exactly (INTENT.md "Node ontology"):
 ##   server → project → workspace (local | worktree, siblings) → agents.
 ## Archived entities never visualise; nodes are removed when entities
 ## archive. Persisted graphs can predate hierarchy fixes — the daemon is
 ## always trusted (reparent on upsert).
+
+const GOLDEN_ANGLE := 2.399963
+const PROJECT_RADIUS := 15.0
+const WORKSPACE_RADIUS := 6.0
+const AGENT_RADIUS := 2.8
 
 
 static func _agent_status(agent: Dictionary) -> String:
@@ -146,7 +152,12 @@ static func _upsert_workspace(graph: Graph, project_id: String, ws: Dictionary) 
 		graph.set_node_meta(existing.id, meta)
 		return reparented
 
+	var parent_node: Dictionary = graph.nodes.get(project_id, {})
+	var px := float(parent_node.get("position", {}).get("x", 0.0))
+	var py := float(parent_node.get("position", {}).get("y", 0.0))
 	var i := graph.child_count(project_id)
+	var base_angle := atan2(py, px) if px != 0.0 or py != 0.0 else 0.0
+	var angle := base_angle + 0.7 * (i - 1)
 	(
 		graph
 		. add_node(
@@ -157,7 +168,11 @@ static func _upsert_workspace(graph: Graph, project_id: String, ws: Dictionary) 
 				"origin": "gateway",
 				"externalId": ws.id,
 				"status": _workspace_status(ws),
-				"position": {"x": 3.0 + i * 0.4, "y": -2.2 - i * 1.8},
+				"position":
+				{
+					"x": px + cos(angle) * WORKSPACE_RADIUS,
+					"y": py + sin(angle) * WORKSPACE_RADIUS,
+				},
 				"meta": meta,
 			}
 		)
@@ -181,12 +196,14 @@ static func _upsert_agent(graph: Graph, agent: Dictionary) -> bool:
 		return reparented
 
 	var parent_id: Variant = parent.id if parent is Dictionary else null
-	var position: Dictionary = {"x": 0.0, "y": -4.0}
+	var position: Dictionary = {"x": 4.0, "y": -12.0}
 	if parent is Dictionary:
+		var parent_pos: Dictionary = parent.position
 		var i := graph.child_count(parent.id)
+		var angle := i * GOLDEN_ANGLE
 		position = {
-			"x": 2.0 + i * 0.3,
-			"y": float(parent.position.y) - 2.0 - i * 1.6,
+			"x": float(parent_pos.x) + cos(angle) * AGENT_RADIUS,
+			"y": float(parent_pos.y) + sin(angle) * AGENT_RADIUS,
 		}
 	(
 		graph

@@ -85,7 +85,22 @@ authored by the game-design agent) for the full catalog.
 Reference: the hacking minigame in NieR: Automata — isometric, narrow palette,
 calm geometry that turns hostile only on state. Modern minimal, Muji feel:
 monospace-first, structure from typography and hairline rules, playful through
-restraint.
+restraint. Device-session confirmed 2026-09-14: "brutalist mach-hud" is the
+target register.
+
+### World coordinates and layout (canon, from the pilot)
+
+- **Axes**: `z+` is the ground-plane normal (up); `x+` points top-left in
+  screen space; `y+` points bottom-right. All world-space code documents
+  mappings against this frame.
+- **Hierarchy is spatial**: the server is the central hub; sessions connect
+  to hubs (manhattan ground edges); sessions within a project are spatially
+  grouped on a ground-plane platform marker carrying the project name label.
+- **Text**: stands in the world on the `zy` plane (never screen-billboarded);
+  minimum rendered size 14 px relative to screen DPI — no text may render
+  smaller.
+- Flat unshaded world geometry; the ship alone carries dimensionality
+  (shaded) so it reads as the only physical object.
 
 - Typography: monospace everywhere (JetBrains Mono shipped as an asset).
   Text is interface, not ornament.

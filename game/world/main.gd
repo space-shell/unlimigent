@@ -7,9 +7,12 @@ extends Node3D
 const GRID_STEP := 4.0
 const GRID_EXTENT := 5  # 11x11 intersections
 const CROSS_ARM := 0.5
-const CROSS_THICKNESS := 0.06
+const CROSS_THICKNESS := 0.02
+const GRID_Y := 0.012
 
 const HUD_FONT_PATH := "res://assets/fonts/JetBrainsMono-Regular.ttf"
+## INTENT.md: no text below 14 px relative to screen DPI — HUD included.
+const HUD_MIN_PX := 16.0
 
 var _hud: Label
 var _hud_sub: Label
@@ -50,6 +53,7 @@ func _ground_material() -> void:
 
 func _wire_g2() -> void:
 	_ship_input = ShipInput.new()
+	_ship_input.set_camera(camera)
 	add_child(_ship_input)
 	_camera_rig = CameraRig.new()
 	add_child(_camera_rig)
@@ -66,19 +70,23 @@ func _build_hud() -> void:
 	var canvas := CanvasLayer.new()
 	canvas.layer = 5
 	add_child(canvas)
-	var font := load("res://assets/fonts/JetBrainsMono-Regular.ttf")
+	var font := load(HUD_FONT_PATH)
+	var screen_h := get_viewport().get_visible_rect().size.y
+	var scale: float = maxf(1.0, screen_h / 800.0)
+	var title_px := int(22 * scale)
+	var sub_px := int(HUD_MIN_PX * scale)
 	_hud = Label.new()
 	_hud.text = "unlimigent"
 	_hud.add_theme_font_override("font", font)
-	_hud.add_theme_font_size_override("font_size", 22)
+	_hud.add_theme_font_size_override("font_size", title_px)
 	_hud.modulate = Tokens.INK
 	_hud.position = Vector2(24, 18)
 	canvas.add_child(_hud)
 	_hud_sub = Label.new()
 	_hud_sub.add_theme_font_override("font", font)
-	_hud_sub.add_theme_font_size_override("font_size", 16)
+	_hud_sub.add_theme_font_size_override("font_size", sub_px)
 	_hud_sub.modulate = Tokens.INK_FAINT
-	_hud_sub.position = Vector2(24, 48)
+	_hud_sub.position = Vector2(24, 18 + title_px + 14)
 	_hud_sub.text = "left half: fly · right hold: dock"
 	canvas.add_child(_hud_sub)
 
@@ -122,7 +130,7 @@ func _grid() -> void:
 	origin_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	origin_mat.albedo_color = Tokens.INK
 
-	var y := CROSS_THICKNESS / 2.0
+	var y := GRID_Y
 	for ix in range(-GRID_EXTENT, GRID_EXTENT + 1):
 		for iz in range(-GRID_EXTENT, GRID_EXTENT + 1):
 			var is_origin := ix == 0 and iz == 0
