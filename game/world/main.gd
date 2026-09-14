@@ -106,7 +106,7 @@ func _process(delta: float) -> void:
 	if _fps_accum >= 0.5:
 		_fps_accum = 0.0
 		_hud_sub.text = (
-			"%d entities · %d fps · left: fly · right hold: dock"
+			"%d entities · %d fps · stick: zoom · click: reset · RT: boost · right hold: dock"
 			% [GraphStore.graph.nodes.size(), Engine.get_frames_per_second()]
 		)
 		if Flags.is_on("gb"):
