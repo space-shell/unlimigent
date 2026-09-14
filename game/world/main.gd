@@ -16,6 +16,7 @@ var _hud_sub: Label
 var _ship_input: ShipInput
 var _camera_rig: CameraRig
 var _connection_state := "offline"
+var _fps_accum := 0.0
 
 @onready var camera: Camera3D = $Camera
 @onready var ground: MeshInstance3D = $Ground
@@ -88,13 +89,24 @@ func _on_gateway_event(event: Dictionary) -> void:
 		_update_hud()
 
 
+func _process(delta: float) -> void:
+	if _hud_sub == null:
+		return
+	_fps_accum += delta
+	if _fps_accum >= 0.5:
+		_fps_accum = 0.0
+		_hud_sub.text = (
+			"%d entities · %d fps · left: fly · right hold: dock"
+			% [GraphStore.graph.nodes.size(), Engine.get_frames_per_second()]
+		)
+		if Flags.is_on("gb"):
+			print("hud: %s | %s" % [_hud.text, _hud_sub.text])
+
+
 func _update_hud() -> void:
 	if _hud == null:
 		return
 	_hud.text = "unlimigent · %s" % _connection_state
-	_hud_sub.text = "%d entities · left: fly · right hold: dock" % GraphStore.graph.nodes.size()
-	if Flags.is_on("gb"):
-		print("hud: %s | %s" % [_hud.text, _hud_sub.text])
 
 
 func _grid() -> void:
