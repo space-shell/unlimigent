@@ -23,8 +23,8 @@ review.
 |---|---|---|---|
 | G0 | — | Foundations & spikes | ◐ in progress (Ga/Gb ✓; Gc touch ✓, gamepad events deferred to G2) |
 | G1 | `g1` | Core port (graph/bus/gateway in GDScript) | ✓ complete 2026-09-11 — 35 gdUnit cases green (store, projection incl. large scenario, snapshot round-trip, mock scripts); runtime wiring behind `g1`; real gateway code complete, live pad verification rides with G3.a |
-| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ◐ device-verified: 60fps, piloting (touch+gamepad), dock+inspect, zoom, boost, compass — open polish items tracked in commit log |
-| G3.a | `g3a` | In-world management — **read** (real gateway, real names, live status, transcript/inspect readouts) | ☐ not started |
+| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ◐ device-verified: 60fps, piloting (touch+gamepad), dock+inspect, zoom (inertial), boost, zoom-scaled compass — open polish items tracked in commit log |
+| G3.a | `g3a` | In-world management — **read** (real gateway, real names, live status, transcript/inspect readouts) | ◐ in progress 2026-09-14 — real gateway wired behind `g3a`, workspace titles use daemon names; pad verification pending |
 | G3.b | `g3b` | In-world management — **write** (create agent, approve/deny permission, archive) — web parity bar; retires the web app | ☐ not started |
 | G4 | `g4` | Scoring engine (GAME_DESIGN.md phase 1) | ☐ not started |
 | G5 | `g5` | Voice & hands-free | ☐ not started |

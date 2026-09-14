@@ -13,7 +13,12 @@ const FOCUS_RETURN_SEC := 4.0
 const SIZE_MIN := 1.5
 const SIZE_MAX := 37.5
 const SIZE_DEFAULT := 20.0
-const ZOOM_RATE := 1.6
+## Zoom works in log-space with inertia: holding the stick accelerates the
+## zoom velocity, releasing damps it — the zoom ramps in and glides out
+## instead of tracking the stick linearly.
+const ZOOM_ACCEL := 4.2
+const ZOOM_VMAX := 3.0
+const ZOOM_DAMP := 6.0
 const RESET_TWEEN_SEC := 0.4
 ## Docking pulls in to a reading zoom; the previous zoom eases back after.
 const FOCUS_SIZE := 6.0
@@ -24,6 +29,7 @@ var ship: Ship
 var _focus_target: Variant = null
 var _focus_until := 0.0
 var _zoom_axis := 0.0
+var _zoom_velocity := 0.0
 var _reset_tween: Tween
 var _off_activate: Callable
 var _off_zoom: Callable
@@ -60,6 +66,7 @@ func _reset_zoom() -> void:
 	if _reset_tween != null and _reset_tween.is_valid():
 		_reset_tween.kill()
 	_zoom_axis = 0.0
+	_zoom_velocity = 0.0
 	_reset_tween = create_tween()
 	_reset_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_reset_tween.tween_property(camera, "size", SIZE_DEFAULT, RESET_TWEEN_SEC)
@@ -69,6 +76,7 @@ func _zoom_to(target: float, duration: float) -> void:
 	if _reset_tween != null and _reset_tween.is_valid():
 		_reset_tween.kill()
 	_zoom_axis = 0.0
+	_zoom_velocity = 0.0
 	_reset_tween = create_tween()
 	_reset_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_reset_tween.tween_property(camera, "size", clamp_size(target), duration)
@@ -101,7 +109,13 @@ func _physics_process(delta: float) -> void:
 			# manual zoom takes over from the focus pull
 			_focusing = false
 			_focus_target = null
-		camera.size = clamp_size(camera.size * exp(_zoom_axis * ZOOM_RATE * delta))
+		_zoom_velocity = clampf(
+			_zoom_velocity + _zoom_axis * ZOOM_ACCEL * delta, -ZOOM_VMAX, ZOOM_VMAX
+		)
+	else:
+		_zoom_velocity *= exp(-ZOOM_DAMP * delta)
+	if absf(_zoom_velocity) > 0.001:
+		camera.size = clamp_size(camera.size * exp(_zoom_velocity * delta))
 	var target := ship.position + SHIP_OFFSET
 	if _focus_target is String and Time.get_ticks_msec() / 1000.0 < _focus_until:
 		var node: Variant = GraphStore.graph.nodes.get(_focus_target)

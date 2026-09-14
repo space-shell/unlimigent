@@ -145,11 +145,13 @@ static func _upsert_workspace(graph: Graph, project_id: String, ws: Dictionary) 
 	var existing: Variant = _find_by_external_id(graph, ws.id)
 	var kind := "worktree" if ws.get("workspaceKind", "") == "worktree" else "workspace"
 	var meta := _workspace_meta(ws)
-	# workspace/worktree nodes are info nodes: branch as the title; sub is
-	# "Local" for checkouts or the worktree folder name for worktrees
-	var title: Variant = ws.get("branch")
+	# workspace nodes title themselves with the daemon name (the workspace's
+	# human label); the branch lives in meta and on the plate sub-line
+	var title: Variant = ws.get("name")
+	if title == null or String(title) == "":
+		title = ws.get("branch")
 	if title == null:
-		title = ws.get("name", "")
+		title = ws.id
 	var folder: Variant = null
 	if ws.get("directory") is String:
 		var parts: PackedStringArray = String(ws.directory).split("/")

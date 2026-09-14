@@ -38,6 +38,18 @@ func test_snapshot_projects_full_hierarchy() -> void:
 	assert_str(ws.parentId).is_equal(project.id)
 
 
+func test_workspace_titles_use_daemon_name() -> void:
+	var graph := Graph.new()
+	GraphProjection.project(graph, Gateway.snapshot_event(_mock_snapshot()))
+	var ws := _find_by_external(graph, "wks_unlimigent")
+	assert_str(ws.title).is_equal("spatial canvas foundations")
+	# worktree with a name too, not its branch
+	var wt := _find_by_external(graph, "wks_voice")
+	assert_str(wt.title).is_equal("voice command interpretation")
+	# branch still surfaces in meta
+	assert_str(wt.meta.branch).is_equal("voice-commands")
+
+
 func test_status_mapping() -> void:
 	var graph := Graph.new()
 	GraphProjection.project(graph, Gateway.snapshot_event(_mock_snapshot()))

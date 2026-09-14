@@ -15,7 +15,9 @@ func _note_connection(event: Dictionary) -> void:
 
 
 func _ready() -> void:
-	if Flags.is_on("g1") or Flags.is_on("g2"):
+	if Flags.is_on("g3a"):
+		start_real()
+	elif Flags.is_on("g1") or Flags.is_on("g2"):
 		start_mock()
 
 
