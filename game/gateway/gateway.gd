@@ -76,6 +76,7 @@ static func normalize_agent(agent: Dictionary) -> Dictionary:
 	var status: String = agent.get("status", "idle")
 	if requires_attention or pending_count > 0:
 		status = "attention"
+	var labels: Dictionary = agent.get("labels", {})
 	return {
 		"id": agent.get("id", ""),
 		"title": agent.get("title", agent.get("id", "")),
@@ -90,6 +91,9 @@ static func normalize_agent(agent: Dictionary) -> Dictionary:
 		"pendingPermissions": pending_count,
 		"lastActivityAt": agent.get("updatedAt"),
 		"archived": agent.get("archivedAt") != null,
+		# sub-agents (run by an agent, not the operator) are daemon-labelled
+		# with their parent — they need no human interaction
+		"subagent": labels.has("paseo.parent-agent-id"),
 	}
 
 

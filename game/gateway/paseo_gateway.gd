@@ -13,6 +13,7 @@ const PING_INTERVAL_SEC := 15.0
 const REFETCH_DEBOUNCE_SEC := 2.0
 const BACKOFF_MIN_SEC := 1.0
 const BACKOFF_MAX_SEC := 30.0
+const TRANSCRIPT_CAP := 200
 
 var url := "ws://100.127.193.39:6767/ws"
 var daemon_host := "jn-server"
@@ -30,6 +31,42 @@ var _listeners: Array[Callable] = []
 var _request_seq := 0
 var _agents_entries: Variant = null
 var _workspaces_entries: Variant = null
+## Live-accumulated transcripts from agent_stream timeline events. Daemon
+## v0.8.0 has no timeline-fetch RPC ("Unknown request" on
+## fetch_agent_timeline_request) — messages exist only from connect onward;
+## re-probe on daemon upgrade.
+var _transcripts: Dictionary = {}
+
+
+## Recent chat messages for an agent (user/assistant), oldest first.
+func get_transcript(agent_id: String) -> Array:
+	var messages: Variant = _transcripts.get(agent_id)
+	return messages.duplicate() if messages is Array else []
+
+
+func _record_transcript(agent_id: String, event: Dictionary) -> void:
+	var item: Dictionary = event.get("item", {})
+	var item_type: String = item.get("type", "")
+	if item_type != "user_message" and item_type != "assistant_message":
+		return
+	var text: Variant = item.get("text")
+	if text == null or String(text) == "":
+		return
+	if not _transcripts.has(agent_id):
+		_transcripts[agent_id] = [] as Array
+	var messages: Array = _transcripts[agent_id]
+	(
+		messages
+		. append(
+			{
+				"role": "user" if item_type == "user_message" else "agent",
+				"text": String(text).strip_edges(),
+				"at": event.get("timestamp", ""),
+			}
+		)
+	)
+	while messages.size() > TRANSCRIPT_CAP:
+		messages.pop_front()
 
 
 func start() -> void:
@@ -160,6 +197,8 @@ func _on_frame(text: String) -> void:
 			"providers_snapshot_update",
 		]
 	):
+		if message_type == "agent_stream":
+			_record_transcript(String(payload.get("agentId", "")), payload.get("event", {}))
 		# live change signals — re-fetch soon rather than parsing partials
 		_schedule_refetch()
 

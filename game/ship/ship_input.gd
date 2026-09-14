@@ -82,6 +82,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventJoypadButton and event.button_index == JOY_BUTTON_RIGHT_STICK:
 		if event.pressed:
 			IntentBus.dispatch({"type": "camera.zoom.reset", "source": "gamepad"})
+	elif event is InputEventJoypadButton and event.pressed:
+		if event.button_index == JOY_BUTTON_LEFT_SHOULDER:
+			IntentBus.dispatch({"type": "inspect.scroll", "source": "gamepad", "delta": -1})
+		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
+			IntentBus.dispatch({"type": "inspect.scroll", "source": "gamepad", "delta": 1})
 
 
 func _physics_process(_delta: float) -> void:

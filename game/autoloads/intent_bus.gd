@@ -19,6 +19,7 @@ const TYPES: PackedStringArray = [
 	"camera.zoom",
 	"camera.zoom.reset",
 	"camera.focus",
+	"inspect.scroll",
 	"ui.menu",
 	"ui.back",
 	"ui.voice",

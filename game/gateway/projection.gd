@@ -79,6 +79,7 @@ static func _agent_meta(agent: Dictionary) -> Dictionary:
 		"permissions": str(pending) if pending > 0 else null,
 		"attention": agent.get("attentionReason"),
 		"activity": agent.get("lastActivityAt"),
+		"subagent": true if agent.get("subagent", false) else null,
 	}
 
 

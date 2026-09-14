@@ -3,15 +3,18 @@ extends Node3D
 ## Approach-to-interact: a flat square outline (no curves — INTENT.md visual
 ## identity) marks the nearest entity, sized to its plate; holding dock for
 ## 600 ms tightens and warms the outline, then locks with an expanding square
-## flash and activates the entity — node.activate intent → focus pull +
-## inspect readout on a standing text card.
+## flash and activates the entity. A full press-release cycle is required
+## between docks — holding through activation never re-triggers. Agent
+## activations open a paginated chat readout; shoulder buttons scroll.
 
 const DOCK_RADIUS := 3.2
 const DOCK_HOLD_SEC := 0.6
-const INSPECT_SEC := 5.0
+const INSPECT_SEC := 12.0
 const RING_Y := 0.16
 const OUTLINE_MARGIN := 0.35
 const OUTLINE_THICKNESS := 0.08
+const INSPECT_PAGE_LINES := 10
+const INSPECT_WRAP_CHARS := 58
 
 var _ring: Node3D
 var _ring_mat := StandardMaterial3D.new()
@@ -20,8 +23,12 @@ var _flash_mat := StandardMaterial3D.new()
 var _nearest_id: String = ""
 var _hold_time := 0.0
 var _docking := false
+var _dock_latched := false
 var _inspect: TextCard
 var _inspect_until := 0.0
+var _inspect_lines: Array[String] = []
+var _inspect_scroll := 0
+var _inspect_agent_id := ""
 var _label_font: FontFile
 
 @onready var world: WorldRenderer
@@ -52,13 +59,33 @@ func _ready() -> void:
 	_inspect.visible = false
 	add_child(_inspect)
 
-	IntentBus.on("ship.dock", func(_i: Dictionary) -> void: _docking = true)
+	IntentBus.on(
+		"ship.dock",
+		func(_i: Dictionary) -> void:
+			if not _dock_latched:
+				_docking = true
+	)
 	IntentBus.on(
 		"ship.undock",
 		func(_i: Dictionary) -> void:
 			_docking = false
 			_hold_time = 0.0
+			# a full release clears the latch — the next press may dock again
+			_dock_latched = false
 	)
+	IntentBus.on("inspect.scroll", _on_inspect_scroll)
+
+
+func _on_inspect_scroll(intent: Dictionary) -> void:
+	if not _inspect.visible:
+		return
+	var delta: int = int(intent.get("delta", 0))
+	_inspect_scroll = clampi(
+		_inspect_scroll + delta * (INSPECT_PAGE_LINES / 2),
+		0,
+		maxi(_inspect_lines.size() - INSPECT_PAGE_LINES, 0)
+	)
+	_render_inspect_page()
 
 
 ## Four thin bars forming a flat square outline around the origin.
@@ -105,6 +132,7 @@ func _physics_process(delta: float) -> void:
 		if _hold_time >= DOCK_HOLD_SEC:
 			_hold_time = 0.0
 			_docking = false
+			_dock_latched = true
 			_activate(_nearest_id)
 	else:
 		_hold_time = 0.0
@@ -134,13 +162,41 @@ func _update_nearest() -> void:
 		_ring.rotation_degrees.y = 0.0
 
 
-func _activate(node_id: String) -> void:
-	IntentBus.dispatch({"type": "node.activate", "source": "system", "id": node_id})
-	_play_lock_flash()
-	var node: Variant = GraphStore.graph.nodes.get(node_id)
-	if node is not Dictionary:
-		return
-	GraphStore.graph.focus(node_id)
+static func _wrap_line(text_value: String, width: int) -> Array[String]:
+	var words: PackedStringArray = text_value.split(" ")
+	var lines: Array[String] = []
+	var current := ""
+	for word in words:
+		if current.length() + word.length() + 1 > width and current != "":
+			lines.append(current)
+			current = word
+		else:
+			current = word if current == "" else current + " " + word
+	if current != "":
+		lines.append(current)
+	return lines
+
+
+## Inspect readout as wrapped lines: header + status + paginated messages.
+static func build_inspect_lines(node: Dictionary, messages: Array) -> Array[String]:
+	var lines: Array[String] = []
+	for header in _header_lines(node):
+		lines.append(header)
+	if messages.is_empty():
+		lines.append("")
+		lines.append("· no live messages this session")
+		return lines
+	lines.append("")
+	lines.append("· chat (LB/RB scrolls):")
+	for message in messages:
+		var role: String = "›" if message.get("role", "") == "user" else " "
+		var wrapped := _wrap_line(String(message.get("text", "")), INSPECT_WRAP_CHARS - 2)
+		for i in range(wrapped.size()):
+			lines.append(("%s " % role if i == 0 else "  ") + wrapped[i])
+	return lines
+
+
+static func _header_lines(node: Dictionary) -> Array[String]:
 	var lines: Array[String] = [String(node.title)]
 	var meta: Dictionary = node.get("meta", {})
 	for key in ["provider", "model", "branch", "pr", "git"]:
@@ -148,11 +204,41 @@ func _activate(node_id: String) -> void:
 		if value != null and String(value) != "":
 			lines.append("%s %s" % [key, value])
 	lines.append("· %s" % String(node.get("status", "")))
-	_inspect.set_text("\n".join(lines))
-	_inspect.set_pixel_size(maxf(0.004, _label_min_units() / 44.0))
+	return lines
+
+
+func _activate(node_id: String) -> void:
+	IntentBus.dispatch({"type": "node.activate", "source": "system", "id": node_id})
+	_play_lock_flash()
+	var node: Variant = GraphStore.graph.nodes.get(node_id)
+	if node is not Dictionary:
+		return
+	GraphStore.graph.focus(node_id)
+	var messages: Array = []
+	if node.kind == "agent":
+		var external: Variant = node.get("externalId")
+		if (
+			external is String
+			and Runtime.gateway != null
+			and Runtime.gateway.has_method("get_transcript")
+		):
+			messages = Runtime.gateway.get_transcript(external)
+	_inspect_lines = build_inspect_lines(node, messages)
+	_inspect_scroll = maxi(_inspect_lines.size() - INSPECT_PAGE_LINES, 0)
+	_inspect_agent_id = String(node.get("externalId", ""))
+	_render_inspect_page()
 	_inspect.visible = true
-	_inspect.position = Vector3(ship.position.x, 0.9, ship.position.z - 1.2)
+	_inspect.position = Vector3(ship.position.x, 1.6, ship.position.z - 1.6)
 	_inspect_until = Time.get_ticks_msec() / 1000.0 + INSPECT_SEC
+
+
+func _render_inspect_page() -> void:
+	var page: Array[String] = []
+	for i in range(
+		_inspect_scroll, mini(_inspect_scroll + INSPECT_PAGE_LINES, _inspect_lines.size())
+	):
+		page.append(_inspect_lines[i])
+	_inspect.set_text("\n".join(page))
 
 
 func _label_min_units() -> float:

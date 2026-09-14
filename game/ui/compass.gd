@@ -70,6 +70,15 @@ static func is_active_status(status: String) -> bool:
 	return status in ACTIVE_STATUSES
 
 
+## Sub-agents are managed by their parent agent — no human interaction
+## needed, so they never draw compass highlights.
+static func should_show(node: Dictionary) -> bool:
+	if not is_active_status(String(node.get("status", ""))):
+		return false
+	var meta: Dictionary = node.get("meta", {})
+	return meta.get("subagent", false) != true
+
+
 func _draw() -> void:
 	if ship == null or camera == null or not camera.is_inside_tree():
 		return
@@ -83,7 +92,7 @@ func _draw() -> void:
 	var span := deg_to_rad(HIGHLIGHT_SPAN_DEG)
 	for node_id in GraphStore.graph.nodes.keys():
 		var node: Dictionary = GraphStore.graph.nodes[node_id]
-		if not is_active_status(String(node.get("status", ""))):
+		if not should_show(node):
 			continue
 		var pos: Dictionary = node.position
 		var screen_pos := camera.unproject_position(Vector3(float(pos.x), 0.0, float(pos.y)))

@@ -10,6 +10,7 @@ const HUD_MIN_PX := 16.0
 
 var _hud: Label
 var _hud_sub: Label
+var _area_label: Label
 var _ship_input: ShipInput
 var _camera_rig: CameraRig
 var _connection_state := "offline"
@@ -91,6 +92,12 @@ func _build_hud() -> void:
 	_hud_sub.position = Vector2(24, 18 + title_px + 14)
 	_hud_sub.text = "left: fly · right stick: zoom · stick click: reset · RT: boost · right hold: dock"
 	canvas.add_child(_hud_sub)
+	_area_label = Label.new()
+	_area_label.add_theme_font_override("font", font)
+	_area_label.add_theme_font_size_override("font_size", title_px)
+	_area_label.modulate = Color(Tokens.INK, 0.0)
+	_area_label.position = Vector2(24, screen_h - title_px * 2.0 - 24)
+	canvas.add_child(_area_label)
 
 
 func _on_gateway_event(event: Dictionary) -> void:
@@ -100,6 +107,8 @@ func _on_gateway_event(event: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
+	if _area_label != null and is_instance_valid(ship):
+		_update_area_label(delta)
 	if _hud_sub == null:
 		return
 	_fps_accum += delta
@@ -111,6 +120,24 @@ func _process(delta: float) -> void:
 		)
 		if Flags.is_on("gb"):
 			print("hud: %s | %s" % [_hud.text, _hud_sub.text])
+
+
+## Entering a project platform surfaces its name bottom-left and lights the
+## platform border; leaving fades both out.
+func _update_area_label(delta: float) -> void:
+	var world: WorldRenderer = get_node("World")
+	var platform: Variant = world.platform_containing(ship.plane_position())
+	var target_alpha := 0.0
+	if platform is Dictionary:
+		var platform_dict: Dictionary = platform
+		_area_label.text = String(platform_dict.title)
+		target_alpha = 1.0
+		world.set_active_platform(String(platform.id))
+	else:
+		world.set_active_platform("")
+	var current: float = _area_label.modulate.a
+	var next := current + (target_alpha - current) * minf(delta * 6.0, 1.0)
+	_area_label.modulate = Color(Tokens.INK, next)
 
 
 func _update_hud() -> void:

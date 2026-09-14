@@ -47,6 +47,11 @@ func subscribe(listener: Callable) -> Callable:
 	return func() -> void: gateway._listeners.erase(listener)
 
 
+## Mocks stream no chat messages — the transcript view reads live data only.
+func get_transcript(_agent_id: String) -> Array:
+	return []
+
+
 func _tick() -> void:
 	if not _script.is_valid():
 		return
