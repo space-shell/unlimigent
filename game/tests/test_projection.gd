@@ -57,8 +57,8 @@ func test_status_mapping() -> void:
 	assert_str(_find_by_external(graph, "agt_codex_voice").status).is_equal("attention")
 	# running agent stays running
 	assert_str(_find_by_external(graph, "agt_opencode_main").status).is_equal("running")
-	# open PR → workspace attention
-	assert_str(_find_by_external(graph, "wks_voice").status).is_equal("attention")
+	# an open PR is state, not attention (official-client parity)
+	assert_str(_find_by_external(graph, "wks_voice").status).is_equal("idle")
 
 
 func test_prune_removes_disappeared_entities_and_empty_projects() -> void:

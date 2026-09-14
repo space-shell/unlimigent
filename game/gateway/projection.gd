@@ -36,8 +36,9 @@ static func _agent_status(agent: Dictionary) -> String:
 
 
 static func _workspace_status(ws: Dictionary) -> String:
-	if ws.get("pullRequest") != null:
-		return "attention"
+	# attention is agent-level truth (requiresAttention / pending
+	# permissions); an open PR is state, not attention — the official client
+	# does not flag PRs, and neither do we
 	var status: String = ws.get("status", "")
 	if status == "done":
 		return "done"

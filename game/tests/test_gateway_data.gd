@@ -43,6 +43,60 @@ func test_normalize_agent_attention_from_pending_permissions() -> void:
 	assert_int(agent.pendingPermissions).is_equal(1)
 
 
+func test_status_normalization_maps_daemon_vocabulary() -> void:
+	assert_str(Gateway.normalize_status("initializing")).is_equal("running")
+	assert_str(Gateway.normalize_status("running")).is_equal("running")
+	assert_str(Gateway.normalize_status("closed")).is_equal("done")
+	assert_str(Gateway.normalize_status("finished")).is_equal("done")
+	assert_str(Gateway.normalize_status("error")).is_equal("error")
+	assert_str(Gateway.normalize_status("something_new")).is_equal("idle")
+
+
+func test_normalize_agent_closed_maps_done() -> void:
+	var agent := Gateway.normalize_agent(
+		{"id": "a3", "status": "closed", "pendingPermissions": [], "labels": {}}
+	)
+	assert_str(agent.status).is_equal("done")
+
+
+func test_record_transcript_from_agent_stream_frame() -> void:
+	var gateway := PaseoGateway.new()
+	(
+		gateway
+		. _record_transcript(
+			"c52",
+			{
+				"type": "timeline",
+				"item": {"type": "user_message", "text": "run uname -a", "messageId": "m1"},
+				"turnId": "t0",
+			},
+		)
+	)
+	(
+		gateway
+		. _record_transcript(
+			"c52",
+			{
+				"type": "timeline",
+				"item": {"type": "assistant_message", "text": "Kernel 6.18.35", "messageId": "m2"},
+			},
+		)
+	)
+	(
+		gateway
+		. _record_transcript(
+			"c52",
+			{"type": "timeline", "item": {"type": "reasoning", "text": "noise"}},
+		)
+	)
+	var messages := gateway.get_transcript("c52")
+	assert_int(messages.size()).is_equal(2)
+	assert_str(messages[0].role).is_equal("user")
+	assert_str(messages[0].text).is_equal("run uname -a")
+	assert_str(messages[1].role).is_equal("agent")
+	gateway.free()
+
+
 func test_normalize_agent_archived() -> void:
 	var raw := {
 		"id": "a2",

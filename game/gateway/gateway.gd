@@ -67,13 +67,31 @@ static func normalize_workspace(entry: Dictionary) -> Dictionary:
 	}
 
 
+## Daemon agent statuses → the canonical NodeStatus set (Graph.STATUSES).
+## Observed live: initializing, running, idle, closed; unknowns map to idle.
+static func normalize_status(raw: String) -> String:
+	match raw:
+		"running", "initializing":
+			return "running"
+		"closed", "finished":
+			return "done"
+		"error":
+			return "error"
+		"attention":
+			return "attention"
+		"archived":
+			return "archived"
+		_:
+			return "idle"
+
+
 ## Raw agent entry (fetch_agents_response entries[].agent) → canonical
 ## GatewayAgent.
 static func normalize_agent(agent: Dictionary) -> Dictionary:
 	var pending: Variant = agent.get("pendingPermissions", [])
 	var pending_count: int = pending.size() if pending is Array else 0
 	var requires_attention: bool = bool(agent.get("requiresAttention", false))
-	var status: String = agent.get("status", "idle")
+	var status: String = normalize_status(agent.get("status", "idle"))
 	if requires_attention or pending_count > 0:
 		status = "attention"
 	var labels: Dictionary = agent.get("labels", {})

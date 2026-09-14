@@ -10,6 +10,9 @@ extends Node3D
 const DOCK_RADIUS := 3.2
 const DOCK_HOLD_SEC := 0.6
 const INSPECT_SEC := 12.0
+## Agent docks are persistent: the chat readout stays while dock is held.
+const AGENT_PAGE_LINES := 16
+const CHAT_CARD_HEIGHT := 1.4
 const RING_Y := 0.16
 const OUTLINE_MARGIN := 0.35
 const OUTLINE_THICKNESS := 0.08
@@ -24,6 +27,7 @@ var _nearest_id: String = ""
 var _hold_time := 0.0
 var _docking := false
 var _dock_latched := false
+var _docked := false
 var _inspect: TextCard
 var _inspect_until := 0.0
 var _inspect_lines: Array[String] = []
@@ -72,6 +76,8 @@ func _ready() -> void:
 			_hold_time = 0.0
 			# a full release clears the latch — the next press may dock again
 			_dock_latched = false
+			if _docked:
+				_end_dock()
 	)
 	IntentBus.on("inspect.scroll", _on_inspect_scroll)
 
@@ -79,13 +85,12 @@ func _ready() -> void:
 func _on_inspect_scroll(intent: Dictionary) -> void:
 	if not _inspect.visible:
 		return
+	var page_lines := AGENT_PAGE_LINES if _docked else INSPECT_PAGE_LINES
 	var delta: int = int(intent.get("delta", 0))
 	_inspect_scroll = clampi(
-		_inspect_scroll + delta * (INSPECT_PAGE_LINES / 2),
-		0,
-		maxi(_inspect_lines.size() - INSPECT_PAGE_LINES, 0)
+		_inspect_scroll + delta * (page_lines / 2), 0, maxi(_inspect_lines.size() - page_lines, 0)
 	)
-	_render_inspect_page()
+	_render_page(page_lines)
 
 
 ## Four thin bars forming a flat square outline around the origin.
@@ -116,7 +121,7 @@ func _square_outline(half: float, mat: StandardMaterial3D) -> Node3D:
 
 func _physics_process(delta: float) -> void:
 	_update_nearest()
-	if Time.get_ticks_msec() / 1000.0 > _inspect_until:
+	if not _docked and Time.get_ticks_msec() / 1000.0 > _inspect_until:
 		_inspect.visible = false
 	if _nearest_id == "":
 		_ring.visible = false
@@ -134,7 +139,7 @@ func _physics_process(delta: float) -> void:
 			_docking = false
 			_dock_latched = true
 			_activate(_nearest_id)
-	else:
+	elif not _docked:
 		_hold_time = 0.0
 		_ring.scale = Vector3.ONE
 		_ring.rotation_degrees.y = 0.0
@@ -177,6 +182,22 @@ static func _wrap_line(text_value: String, width: int) -> Array[String]:
 	return lines
 
 
+## Agent chat readout: title line, then wrapped messages — no info header.
+static func build_chat_lines(title: String, messages: Array) -> Array[String]:
+	var lines: Array[String] = [title]
+	if messages.is_empty():
+		lines.append("")
+		lines.append("· no live messages this session")
+		return lines
+	lines.append("")
+	for message in messages:
+		var role: String = "›" if message.get("role", "") == "user" else " "
+		var wrapped := _wrap_line(String(message.get("text", "")), INSPECT_WRAP_CHARS - 2)
+		for i in range(wrapped.size()):
+			lines.append(("%s " % role if i == 0 else "  ") + wrapped[i])
+	return lines
+
+
 ## Inspect readout as wrapped lines: header + status + paginated messages.
 static func build_inspect_lines(node: Dictionary, messages: Array) -> Array[String]:
 	var lines: Array[String] = []
@@ -214,29 +235,73 @@ func _activate(node_id: String) -> void:
 	if node is not Dictionary:
 		return
 	GraphStore.graph.focus(node_id)
+	var node_dict: Dictionary = node
+	if node_dict.kind == "agent":
+		_open_chat(node_dict)
+	else:
+		_open_info(node_dict)
+
+
+## Agent dock: persistent chat readout on the screen-right of the entity,
+## world text cards faded out so nothing overlaps it.
+func _open_chat(node: Dictionary) -> void:
+	_docked = true
 	var messages: Array = []
-	if node.kind == "agent":
-		var external: Variant = node.get("externalId")
-		if (
-			external is String
-			and Runtime.gateway != null
-			and Runtime.gateway.has_method("get_transcript")
-		):
-			messages = Runtime.gateway.get_transcript(external)
-	_inspect_lines = build_inspect_lines(node, messages)
+	var external: Variant = node.get("externalId")
+	if (
+		external is String
+		and Runtime.gateway != null
+		and Runtime.gateway.has_method("get_transcript")
+	):
+		messages = Runtime.gateway.get_transcript(external)
+	if Flags.is_on("gb"):
+		print("gb: chat dock agent=%s messages=%d" % [external, messages.size()])
+	_inspect_lines = build_chat_lines(String(node.title), messages)
+	_inspect_scroll = maxi(_inspect_lines.size() - AGENT_PAGE_LINES, 0)
+	_render_page(AGENT_PAGE_LINES)
+	_inspect.visible = true
+	# place the card to the screen-right of the focused entity so it
+	# occupies the right half of the view
+	var entity_pos: Variant = world.entity_world_pos(String(node.id))
+	var card_pos := Vector3(ship.position.x, CHAT_CARD_HEIGHT, ship.position.z - 1.6)
+	var cam := camera_ref()
+	if entity_pos is Vector3 and cam != null:
+		var right := (
+			Vector3(cam.global_transform.basis.x.x, 0.0, cam.global_transform.basis.x.z)
+			. normalized()
+		)
+		card_pos = entity_pos + right * (cam.size * 0.55) + Vector3(0, CHAT_CARD_HEIGHT, 0)
+	_inspect.position = card_pos
+	world.set_cards_visible(false)
+	_inspect_until = INF
+
+
+## Non-agent dock: info readout, auto-expires.
+func _open_info(node: Dictionary) -> void:
+	_docked = false
+	_inspect_lines = build_inspect_lines(node, [])
 	_inspect_scroll = maxi(_inspect_lines.size() - INSPECT_PAGE_LINES, 0)
-	_inspect_agent_id = String(node.get("externalId", ""))
-	_render_inspect_page()
+	_render_page(INSPECT_PAGE_LINES)
 	_inspect.visible = true
 	_inspect.position = Vector3(ship.position.x, 1.6, ship.position.z - 1.6)
 	_inspect_until = Time.get_ticks_msec() / 1000.0 + INSPECT_SEC
 
 
-func _render_inspect_page() -> void:
+func _end_dock() -> void:
+	_docked = false
+	_inspect.visible = false
+	world.set_cards_visible(true)
+	IntentBus.dispatch({"type": "camera.release", "source": "system"})
+
+
+func camera_ref() -> Camera3D:
+	var viewport := get_viewport()
+	return viewport.get_camera_3d() if viewport != null else null
+
+
+func _render_page(page_lines: int) -> void:
 	var page: Array[String] = []
-	for i in range(
-		_inspect_scroll, mini(_inspect_scroll + INSPECT_PAGE_LINES, _inspect_lines.size())
-	):
+	for i in range(_inspect_scroll, mini(_inspect_scroll + page_lines, _inspect_lines.size())):
 		page.append(_inspect_lines[i])
 	_inspect.set_text("\n".join(page))
 

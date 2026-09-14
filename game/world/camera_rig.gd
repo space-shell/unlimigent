@@ -34,6 +34,7 @@ var _reset_tween: Tween
 var _off_activate: Callable
 var _off_zoom: Callable
 var _off_zoom_reset: Callable
+var _off_release: Callable
 var _focusing := false
 var _size_before_focus := SIZE_DEFAULT
 
@@ -60,6 +61,18 @@ func setup(p_camera: Camera3D, p_ship: Ship) -> void:
 				_zoom_axis = float(delta)
 	)
 	IntentBus.on("camera.zoom.reset", func(_intent: Dictionary) -> void: _reset_zoom())
+	IntentBus.on(
+		"camera.release",
+		func(_intent: Dictionary) -> void:
+			if _focusing:
+				_end_focus()
+	)
+
+
+func _exit_tree() -> void:
+	for off in [_off_activate, _off_zoom, _off_zoom_reset, _off_release]:
+		if off.is_valid():
+			off.call()
 
 
 func _reset_zoom() -> void:

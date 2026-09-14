@@ -29,11 +29,30 @@ var _entities: Dictionary = {}
 var _edges: Dictionary = {}
 var _platforms: Dictionary = {}
 var _server_ring: MeshInstance3D
+var _server_radius := 0.0
+var _cards_visible := true
 var _outline_mat := StandardMaterial3D.new()
 var _status_mats: Dictionary = {}
 var _edge_mat := StandardMaterial3D.new()
 var _platform_mat := StandardMaterial3D.new()
 var _label_font: FontFile
+
+
+## Hide every entity text card (chat readouts fade the world out).
+func set_cards_visible(value: bool) -> void:
+	_cards_visible = value
+	for node_id in GraphStore.graph.nodes.keys():
+		var entity: Variant = _entities.get(node_id)
+		if entity is Dictionary:
+			entity.card.visible = value and not _is_subagent(GraphStore.graph.nodes[node_id])
+
+
+func server_ring_radius() -> float:
+	return _server_radius
+
+
+func is_inside_server(plane_pos: Vector2) -> bool:
+	return _server_radius > 0.0 and plane_pos.length() <= _server_radius
 
 
 func _ready() -> void:
@@ -124,7 +143,7 @@ func _create_entity(node: Dictionary) -> Dictionary:
 	var size: float = KIND_SIZE.get(String(node.kind), 1.2)
 	var outline := _plate(size, PLATE_HEIGHT, _outline_mat, 0.0)
 	root.add_child(outline)
-	var fill := _plate(size - 0.14, 0.05, _status_mats[node.status], PLATE_HEIGHT + 0.005)
+	var fill := _plate(size - 0.14, 0.05, _mat_for_status(node.status), PLATE_HEIGHT + 0.005)
 	root.add_child(fill)
 	var card := _make_card(_label_text(node), Tokens.INK)
 	card.position = Vector3(0, CARD_HEIGHT, -(size / 2.0 + CARD_SETBACK))
@@ -137,10 +156,18 @@ func _create_entity(node: Dictionary) -> Dictionary:
 func _update_entity(entity: Dictionary, node: Dictionary) -> void:
 	var pos: Dictionary = node.position
 	entity.root.position = Vector3(float(pos.x), 0.0, float(pos.y))
-	entity.fill.material_override = _status_mats[node.status]
+	entity.fill.material_override = _mat_for_status(node.status)
 	entity.card.set_text(_label_text(node))
 	# sub-agents are managed by their parent agent — no human-facing text
-	entity.card.visible = not _is_subagent(node)
+	entity.card.visible = not _is_subagent(node) and _cards_visible
+
+
+## Defensive status-material lookup — an unmapped status renders as idle,
+## never aborts entity construction (regression: daemon "closed" agents
+## vanished because the lookup returned null into a typed parameter).
+func _mat_for_status(status: String) -> StandardMaterial3D:
+	var mat: Variant = _status_mats.get(status)
+	return mat if mat is StandardMaterial3D else _status_mats["idle"]
 
 
 func _is_subagent(node: Dictionary) -> bool:
@@ -326,6 +353,7 @@ func _rebuild_server_ring() -> void:
 	if max_radius <= 0.0:
 		return
 	var radius := max_radius + 6.0
+	_server_radius = radius
 	if _server_ring != null and is_instance_valid(_server_ring):
 		var mesh := _server_ring.mesh as TorusMesh
 		mesh.inner_radius = radius - 0.15

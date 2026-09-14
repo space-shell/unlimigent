@@ -22,8 +22,16 @@ const ACTIVE_STATUSES: PackedStringArray = ["running", "attention", "error"]
 
 var ship: Ship
 var camera: Camera3D
+var world: WorldRenderer
 var _center := Vector2.ZERO
 var _center_initialized := false
+var _visibility := 1.0
+
+
+func setup(p_ship: Ship, p_camera: Camera3D, p_world: WorldRenderer = null) -> void:
+	ship = p_ship
+	camera = p_camera
+	world = p_world
 
 
 ## Diameter as a fraction of the min screen dimension at an ortho size.
@@ -32,11 +40,6 @@ static func diameter_fraction(camera_size: float) -> float:
 	var hi := log(CameraRig.SIZE_MIN)
 	var t := clampf((lo - log(camera_size)) / (lo - hi), 0.0, 1.0)
 	return lerpf(FRACTION_MIN_ZOOM, FRACTION_MAX_ZOOM, t)
-
-
-func setup(p_ship: Ship, p_camera: Camera3D) -> void:
-	ship = p_ship
-	camera = p_camera
 
 
 func _ready() -> void:
@@ -63,6 +66,12 @@ func _process(delta: float) -> void:
 			_center_initialized = true
 		else:
 			_center = _center.lerp(target, 1.0 - exp(-FOLLOW_LERP * delta))
+	# the compass lives inside the server ring: fade out when the ship
+	# leaves the fleet boundary, fade in on entering
+	var target_visibility := 1.0
+	if world != null and ship != null:
+		target_visibility = 1.0 if world.is_inside_server(ship.plane_position()) else 0.0
+	_visibility += (target_visibility - _visibility) * minf(delta * 4.0, 1.0)
 	queue_redraw()
 
 

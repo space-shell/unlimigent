@@ -56,7 +56,7 @@ func _wire_g2() -> void:
 	add_child(_camera_rig)
 	_camera_rig.setup(camera, ship)
 	var compass := Compass.new()
-	compass.setup(ship, camera)
+	compass.setup(ship, camera, get_node("World"))
 	var canvas := CanvasLayer.new()
 	canvas.layer = 8
 	add_child(canvas)
