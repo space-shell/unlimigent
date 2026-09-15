@@ -36,14 +36,18 @@ static func agent_removed_event(id: String) -> Dictionary:
 
 ## Raw workspace entry (fetch_workspaces_response entries[]) → canonical
 ## GatewayWorkspace. Field names verified against the live daemon 2026-09-11.
+static func _dict(value: Variant) -> Dictionary:
+	return value if value is Dictionary else {}
+
+
 static func normalize_workspace(entry: Dictionary) -> Dictionary:
-	var git: Dictionary = entry.get("gitRuntime", {})
-	var ahead_behind: Dictionary = git.get("aheadBehind", {})
-	var pr_raw: Variant = entry.get("githubRuntime", {}).get("pullRequest", null)
+	var git: Dictionary = _dict(entry.get("gitRuntime"))
+	var ahead_behind: Dictionary = _dict(git.get("aheadBehind"))
+	var pr_raw: Variant = _dict(entry.get("githubRuntime")).get("pullRequest", null)
 	var pr: Variant = null
 	if pr_raw is Dictionary:
 		pr = {"title": pr_raw.get("title"), "state": pr_raw.get("state")}
-	var diff: Dictionary = entry.get("diffStat", {})
+	var diff: Dictionary = _dict(entry.get("diffStat"))
 	var diff_stat: Variant = null
 	if diff.has("additions") or diff.has("deletions"):
 		diff_stat = "+%d −%d" % [int(diff.get("additions", 0)), int(diff.get("deletions", 0))]
@@ -94,7 +98,7 @@ static func normalize_agent(agent: Dictionary) -> Dictionary:
 	var status: String = normalize_status(agent.get("status", "idle"))
 	if requires_attention or pending_count > 0:
 		status = "attention"
-	var labels: Dictionary = agent.get("labels", {})
+	var labels: Dictionary = _dict(agent.get("labels"))
 	return {
 		"id": agent.get("id", ""),
 		"title": agent.get("title", agent.get("id", "")),
@@ -103,7 +107,7 @@ static func normalize_agent(agent: Dictionary) -> Dictionary:
 		"cwd": agent.get("cwd", ""),
 		"workspaceId": agent.get("workspaceId"),
 		"status": status,
-		"mode": agent.get("runtimeInfo", {}).get("modeId", agent.get("currentModeId")),
+		"mode": _dict(agent.get("runtimeInfo")).get("modeId", agent.get("currentModeId")),
 		"requiresAttention": requires_attention,
 		"attentionReason": agent.get("attentionReason"),
 		"pendingPermissions": pending_count,

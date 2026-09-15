@@ -36,6 +36,18 @@ var _workspaces_entries: Variant = null
 ## fetch_agent_timeline_request) — messages exist only from connect onward;
 ## re-probe on daemon upgrade.
 var _transcripts: Dictionary = {}
+## Cheap permanent diagnostics: raw session message-type and timeline
+## item-type counters (read via frame_counts()/timeline_item_counts()).
+var _frame_type_counts: Dictionary = {}
+var _timeline_item_counts: Dictionary = {}
+
+
+func frame_counts() -> Dictionary:
+	return _frame_type_counts.duplicate()
+
+
+func timeline_item_counts() -> Dictionary:
+	return _timeline_item_counts.duplicate()
 
 
 ## Recent chat messages for an agent (user/assistant), oldest first.
@@ -47,6 +59,7 @@ func get_transcript(agent_id: String) -> Array:
 func _record_transcript(agent_id: String, event: Dictionary) -> void:
 	var item: Dictionary = event.get("item", {})
 	var item_type: String = item.get("type", "")
+	_timeline_item_counts[item_type] = int(_timeline_item_counts.get(item_type, 0)) + 1
 	if item_type != "user_message" and item_type != "assistant_message":
 		return
 	var text: Variant = item.get("text")
@@ -175,6 +188,7 @@ func _on_frame(text: String) -> void:
 	var message: Dictionary = frame.get("message", {})
 	var message_type: String = message.get("type", "")
 	var payload: Dictionary = message.get("payload", {})
+	_frame_type_counts[message_type] = int(_frame_type_counts.get(message_type, 0)) + 1
 	if message_type == "status":
 		if payload.get("status", "") == "server_info":
 			var hostname: Variant = payload.get("hostname")

@@ -183,11 +183,15 @@ static func _wrap_line(text_value: String, width: int) -> Array[String]:
 
 
 ## Agent chat readout: title line, then wrapped messages — no info header.
-static func build_chat_lines(title: String, messages: Array) -> Array[String]:
+## A running agent gets a turn-in-progress footer (turns are long; an
+## empty-looking log mid-turn is normal, not broken).
+static func build_chat_lines(
+	title: String, messages: Array, running: bool = false
+) -> Array[String]:
 	var lines: Array[String] = [title]
 	if messages.is_empty():
 		lines.append("")
-		lines.append("· no live messages this session")
+		lines.append("· turn in progress…" if running else "· no live messages this session")
 		return lines
 	lines.append("")
 	for message in messages:
@@ -195,6 +199,9 @@ static func build_chat_lines(title: String, messages: Array) -> Array[String]:
 		var wrapped := _wrap_line(String(message.get("text", "")), INSPECT_WRAP_CHARS - 2)
 		for i in range(wrapped.size()):
 			lines.append(("%s " % role if i == 0 else "  ") + wrapped[i])
+	if running:
+		lines.append("")
+		lines.append("· turn in progress…")
 	return lines
 
 
@@ -256,7 +263,9 @@ func _open_chat(node: Dictionary) -> void:
 		messages = Runtime.gateway.get_transcript(external)
 	if Flags.is_on("gb"):
 		print("gb: chat dock agent=%s messages=%d" % [external, messages.size()])
-	_inspect_lines = build_chat_lines(String(node.title), messages)
+	_inspect_lines = build_chat_lines(
+		String(node.title), messages, String(node.get("status", "")) == "running"
+	)
 	_inspect_scroll = maxi(_inspect_lines.size() - AGENT_PAGE_LINES, 0)
 	_render_page(AGENT_PAGE_LINES)
 	_inspect.visible = true

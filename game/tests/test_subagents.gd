@@ -55,3 +55,15 @@ func test_wrap_line_splits_long_words_lines() -> void:
 	assert_int(wrapped.size()).is_greater(2)
 	for line in wrapped:
 		assert_bool(line.length() <= 20).is_true()
+
+
+func test_chat_lines_show_turn_in_progress() -> void:
+	var running := Interaction.build_chat_lines("probe", [], true)
+	(
+		assert_bool(running.any(func(l: String) -> bool: return l.contains("turn in progress")))
+		. is_true()
+	)
+	var idle := Interaction.build_chat_lines("probe", [], false)
+	assert_bool(idle.any(func(l: String) -> bool: return l.contains("no live messages"))).is_true()
+	var busy := Interaction.build_chat_lines("probe", [{"role": "agent", "text": "done"}], true)
+	assert_bool(busy.any(func(l: String) -> bool: return l.contains("turn in progress"))).is_true()
