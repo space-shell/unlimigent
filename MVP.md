@@ -21,10 +21,10 @@ review.
 
 | Stage | Flag | Focus | Status |
 |---|---|---|---|
-| G0 | — | Foundations & spikes | ◐ in progress (Ga/Gb ✓; Gc touch ✓, gamepad events deferred to G2) |
-| G1 | `g1` | Core port (graph/bus/gateway in GDScript) | ✓ complete 2026-09-11 — 35 gdUnit cases green (store, projection incl. large scenario, snapshot round-trip, mock scripts); runtime wiring behind `g1`; real gateway code complete, live pad verification rides with G3.a |
-| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ◐ device-verified: 60fps, piloting (touch+gamepad), dock+inspect, zoom (inertial), boost, zoom-scaled compass — open polish items tracked in commit log |
-| G3.a | `g3a` | In-world management — **read** (real gateway, real names, live status, transcript/inspect readouts) | ◐ in progress 2026-09-14 — real gateway wired behind `g3a`, workspace titles use daemon names; pad verification pending |
+| G0 | — | Foundations & spikes | ✓ complete 2026-09-14 — Ga export/install/render, Gb daemon WS + wire protocol + push events, Gc touch + gamepad (axes, triggers, shoulders, face buttons all exercised in live piloting sessions) |
+| G1 | `g1` | Core port (graph/bus/gateway in GDScript) | ✓ complete 2026-09-11 — 35 gdUnit cases green (store, projection incl. large scenario, snapshot round-trip, mock scripts); runtime wiring behind `g1`; real gateway verified live on pad |
+| G2 | `g2` | Ship core (pilotable ship over the graph plane) | ✓ complete 2026-09-14 — device bars met across seven feedback passes: 60fps steady, touch+gamepad piloting, inertial zoom with clamps, boost, dock+inspect, zoom-scaled compass, infinite grid, fixed camera. Flag defaults flip on with G3.a's (the real experience needs both) |
+| G3.a | `g3a` | In-world management — **read** (real gateway, real names, live status, transcript readouts) | ◐ in progress — real gateway live on pad (40+ real entities, real names, sub-agent handling, platform areas, server ring, persistent chat dock); pending: pass-7 device verification, live-mirroring exit test, transcript-history re-probe on daemon upgrade |
 | G3.b | `g3b` | In-world management — **write** (create agent, approve/deny permission, archive) — web parity bar; retires the web app | ☐ not started |
 | G4 | `g4` | Scoring engine (GAME_DESIGN.md phase 1) | ☐ not started |
 | G5 | `g5` | Voice & hands-free | ☐ not started |
